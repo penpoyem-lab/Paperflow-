@@ -131,25 +131,38 @@ object PaperflowGitHubRepoData {
 # Paperflow — PDF Reader, Organizer & Study Notes
 
 <div align="center">
-  <h3>Read • Organize • Annotate • Learn</h3>
+  <img src="app/src/main/res/drawable/paperflow_red_black_icon_1791443745243.jpg" alt="Paperflow App Icon" width="100" />
+  <h3>PDF Reader • PDF Toolkit • Linked Study Notes • Floating AI Assistant</h3>
   <p>A modern, 100% local-first Android PDF Reader, PDF Toolkit, and Study Notes workspace crafted with Kotlin, Jetpack Compose, and an Apple VisionOS-inspired Liquid Glass design system.</p>
 </div>
 
 ---
 
-## ✨ Key Features
+## 📸 App Interface & Visual Showcase
 
-- **Native High-Resolution PDF Reader**: Crisp multi-page rendering powered by Android's `PdfRenderer`, complete with pinch-to-zoom, page thumbnails, reading progress tracking, and Light / Sepia / Dark reader themes.
-- **Complete Offline PDF Toolkit**:
-  - **Merge & Combine PDFs**: Join multiple PDF documents in custom order.
-  - **Split & Extract Pages**: Slice page ranges into standalone PDF files.
-  - **Arrange & Rearrange Pages**: Reorder, rotate, duplicate, or remove pages visually.
-  - **Compress & Optimize**: Reduce PDF file size locally on device.
-  - **Watermark, Sign & Stamp**: Apply custom text watermarks or digital ink signatures.
-  - **PDF to Images & Image to PDF**: Convert documents and camera scans seamlessly.
-- **Rich Linked Study Notes & Bookmarks**: Capture markdown-friendly study notes linked directly to specific PDF pages and highlighted text snippets.
-- **Daily Reading Streak System**: Offline-first daily check-in tracker with a 7-day calendar strip, milestone badges, and liquid-glass streak celebration modal.
-- **Visual Editions & Photo Themes**: Switch between **Light**, **Dark**, **System**, and the **Galactic Scholar (Cosmic Codex)** edition.
+<div align="center">
+  <img src="app/src/main/res/drawable/img_app_interface_showcase_1791433886976.jpg" alt="Paperflow App Interface Showcase" width="100%" />
+  <p><em>Left: Home Workspace & Daily Streak • Center: High-Resolution PDF Reader & Annotation Studio • Right: 19 Offline PDF Tools & Draggable Liquid-Glass AI Assistant</em></p>
+</div>
+
+| VisionOS Liquid Glass Hero | Galactic Scholar (Cosmic Codex) Edition | 3D Crystalline PDF Engine Emblem |
+| :---: | :---: | :---: |
+| <img src="app/src/main/res/drawable/img_hero_liquid_glass_1791391701805.jpg" width="280" /> | <img src="app/src/main/res/drawable/img_hero_galactic_codex_1791427754468.jpg" width="280" /> | <img src="app/src/main/res/drawable/img_pdf_3d_badge_1791391714001.jpg" width="180" /> |
+
+---
+
+## 🖥️ Interactive App Interface Breakdown
+
+1. **🏠 Home Workspace & Daily Reading Streak (`HomeScreen.kt`)**:
+   - Quick-action cards for **Open PDF**, **Merge**, **Split**, **Compress**, and **New Study Note**, plus the **🔥 Daily Streak** pill and **Continue Reading** carousel.
+2. **📖 Native High-Resolution PDF Reader (`PdfReaderScreen.kt`)**:
+   - Crisp multi-page rendering powered by Android's `PdfRenderer`, pinch-to-zoom, page thumbnails, Light / Sepia / Dark reader modes, and 5-color **Annotation Studio**.
+3. **🛠️ Complete Offline PDF Toolkit (`ToolsScreen.kt` & `PdfEngine.kt`)**:
+   - **19 Active Utilities**: Merge, Split, Rotate, Rearrange, Delete/Extract Pages, Page Numbers, Watermark, Digital Ink Signature, Compress, Repair, Grayscale, Protect/Unlock PDF, Metadata Inspector, PDF to Image/Text, and Image to PDF.
+4. **✨ Draggable Floating Liquid-Glass AI Assistant (`FloatingAiChatbot.kt`)**:
+   - Smooth freeform drag with 4-edge magnetic spring snap, animated Prism Star logo, and PDF-aware summarization, Q&A, translation, and 1-tap save to Study Notes.
+5. **🎨 Visual Editions & Photo Themes (`SettingsScreen.kt`)**:
+   - Switch between **Light**, **Dark**, **System**, and the **Galactic Scholar (Cosmic Codex)** photo edition.
 
 ---
 
@@ -161,18 +174,18 @@ Paperflow-pdf-reader-Notes/
 ├── app/
 │   ├── src/main/
 │   │   ├── java/com/example/
+│   │   │   ├── ai/          # PaperflowAiService & PDF context engine
 │   │   │   ├── auth/        # PaperflowAuthManager & session persistence
 │   │   │   ├── data/        # Room Database, Entities, DAO & SettingsDataStore
 │   │   │   ├── pdf/         # Native PdfEngine (Merge, Split, Compress, Sign, Watermark)
 │   │   │   └── ui/          # Jetpack Compose screens, Liquid Glass components & Theme
-│   │   ├── res/             # Adaptive launcher icons, vector drawables & string resources
+│   │   ├── res/             # App interface showcase photos, adaptive icons & fonts
 │   │   └── AndroidManifest.xml
 │   └── build.gradle.kts     # App module dependencies & Compose configuration
-├── fastlane/metadata/       # Play Store / F-Droid release notes & screenshots
 ├── gradle/                  # Version catalog (libs.versions.toml) & wrapper config
 ├── .gitignore
 ├── LICENSE                  # MIT License
-├── README.md                # Project documentation
+├── README.md                # Project documentation & app interface gallery
 ├── build.gradle.kts         # Root Gradle configuration
 └── settings.gradle.kts      # Project settings (rootProject.name = "Paperflow")
 ```

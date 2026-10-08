@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.core.net.toUri
 import com.example.pdf.PdfEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -17,6 +18,7 @@ class GlassPaperRepository(
     val allDocuments: Flow<List<PdfDocumentEntity>> = dao.getAllDocuments()
     val allNotes: Flow<List<NoteEntity>> = dao.getAllNotes()
     val allBookmarks: Flow<List<BookmarkEntity>> = dao.getAllBookmarks()
+    val allAiChatMessages: Flow<List<AiChatMessageEntity>> = dao.getAllAiChatMessages()
 
     fun getBookmarksForDocument(docId: Long): Flow<List<BookmarkEntity>> =
         dao.getBookmarksForDocument(docId)
@@ -91,6 +93,13 @@ class GlassPaperRepository(
                 val palette = listOf(0xFF3B82F6, 0xFF8B5CF6, 0xFFEC4899, 0xFF14B8A6, 0xFFF59E0B, 0xFF22C55E)
                 val chosenAccent = palette[(displayName.hashCode() and 0x7FFFFFFF) % palette.size]
 
+                val extractedPages = runCatching {
+                    PdfEngine.extractRealTextFromPdf(context, resolvedPath)
+                }.getOrDefault(emptyList())
+                val realSearchableText = extractedPages
+                    .filter { it.isNotBlank() }
+                    .joinToString("||PAGE||")
+
                 val entity = PdfDocumentEntity(
                     title = if (displayName.endsWith(".pdf", ignoreCase = true)) displayName else "$displayName.pdf",
                     filePath = resolvedPath,
@@ -102,8 +111,8 @@ class GlassPaperRepository(
                     lastReadPage = 0,
                     categoryTag = categoryOverride,
                     accentHex = chosenAccent,
-                    searchableText = "",
-                    isScannedOnly = true
+                    searchableText = realSearchableText,
+                    isScannedOnly = realSearchableText.isBlank()
                 )
                 val newId = dao.insertDocument(entity)
                 Result.success(entity.copy(id = newId))
@@ -146,7 +155,7 @@ class GlassPaperRepository(
         try {
             val copyTitle = doc.title.removeSuffix(".pdf") + " (Copy).pdf"
             val dstFile = if (doc.filePath.startsWith("content://") || doc.filePath.startsWith("file://")) {
-                PdfEngine.copyUriToInternalStorage(context, Uri.parse(doc.filePath), copyTitle)
+                PdfEngine.copyUriToInternalStorage(context, doc.filePath.toUri(), copyTitle)
             } else {
                 val src = File(doc.filePath)
                 if (!src.exists()) return@withContext null
@@ -243,12 +252,26 @@ class GlassPaperRepository(
         dao.clearAnnotationsOnPage(docId, pageIndex)
     }
 
+    // AI Chat History
+    suspend fun insertAiChatMessage(message: AiChatMessageEntity): Long {
+        return dao.insertAiChatMessage(message)
+    }
+
+    suspend fun deleteAiChatMessage(id: Long) {
+        dao.deleteAiChatMessageById(id)
+    }
+
+    suspend fun clearAiChatHistory() {
+        dao.clearAllAiChatMessages()
+    }
+
     // Clear / Reset
     suspend fun clearAllAppData() = withContext(Dispatchers.IO) {
         dao.clearAllAnnotations()
         dao.clearAllBookmarks()
         dao.clearAllNotes()
         dao.clearAllDocuments()
+        dao.clearAllAiChatMessages()
         removeLegacyDemoFilesIfPresent()
     }
 }

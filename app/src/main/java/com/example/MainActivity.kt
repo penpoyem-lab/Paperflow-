@@ -50,14 +50,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.room.Room
 import com.example.auth.PaperflowAuthManager
+import com.example.data.AppStyleOption
 import com.example.data.AppThemeOption
 import com.example.data.GlassPaperDatabase
 import com.example.data.GlassPaperRepository
 import com.example.data.SettingsDataStore
+import com.example.data.ThemeModeOption
 import com.example.ui.ActiveOverlay
 import com.example.ui.GlassPaperViewModel
 import com.example.ui.GlassPaperViewModelFactory
 import com.example.ui.MainTab
+import com.example.ui.components.FloatingAiChatbotOverlay
 import com.example.ui.components.FloatingGlassNavigationBar
 import com.example.ui.components.LiquidAmbientBackground
 import com.example.ui.components.PaperflowFlashIntroOverlay
@@ -73,6 +76,7 @@ import com.example.ui.screens.SelectPdfOverlay
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.StreakCelebrationModal
 import com.example.ui.screens.StreakDetailsOverlay
+import com.example.ui.screens.ThemeScreen
 import com.example.ui.screens.ToolWorkspaceOverlay
 import com.example.ui.screens.ToolsScreen
 import com.example.ui.theme.ElectricBlue
@@ -166,20 +170,55 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
     val importPreview by viewModel.importPreview.collectAsStateWithLifecycle()
     val toolState by viewModel.toolState.collectAsStateWithLifecycle()
     val isAppStartingLoading by viewModel.isAppStartingLoading.collectAsStateWithLifecycle()
+    val isPageRefreshing by viewModel.isPageRefreshing.collectAsStateWithLifecycle()
     val snackbarMessage by viewModel.snackbarMessage.collectAsStateWithLifecycle()
+    val aiChatMessages by viewModel.aiChatMessages.collectAsStateWithLifecycle()
+    val isAiChatPanelOpen by viewModel.isAiChatPanelOpen.collectAsStateWithLifecycle()
+    val isAiChatMaximized by viewModel.isAiChatMaximized.collectAsStateWithLifecycle()
+    val isAiThinking by viewModel.isAiThinking.collectAsStateWithLifecycle()
+    val activeReaderPageIndex by viewModel.activeReaderPageIndex.collectAsStateWithLifecycle()
+
+    // Pull-down-to-refresh gesture detector on main scrollable pages
+    var overscrollPullPx by remember { mutableFloatStateOf(0f) }
+    val pullRefreshNestedScroll = remember(activeOverlay, isPageRefreshing, isAppStartingLoading) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                if (source == NestedScrollSource.UserInput && available.y > 0f && consumed.y == 0f) {
+                    overscrollPullPx += available.y
+                    if (overscrollPullPx > 145f && !isPageRefreshing && !isAppStartingLoading) {
+                        overscrollPullPx = 0f
+                        viewModel.refreshAppPage()
+                    }
+                } else if (consumed.y < 0f) {
+                    overscrollPullPx = 0f
+                }
+                return Offset.Zero
+            }
+        }
+    }
 
     val systemDark = isSystemInDarkTheme()
-    val isGalacticCodex = settings.appTheme == AppThemeOption.GALACTIC_CODEX
-    val useDarkTheme = when (settings.appTheme) {
-        AppThemeOption.LIGHT -> false
-        AppThemeOption.DARK -> true
-        AppThemeOption.SYSTEM -> systemDark
-        AppThemeOption.GALACTIC_CODEX -> true
+    val isGalacticCodex = settings.appStyle == AppStyleOption.JOURNEY_AWAITS_UI ||
+        settings.appTheme == AppThemeOption.GALACTIC_CODEX
+    val isNothingOs = settings.appStyle == AppStyleOption.NOTHING_UI ||
+        settings.appTheme == AppThemeOption.NOTHING_OS_GLASS
+    val useDarkTheme = when {
+        isNothingOs -> true
+        isGalacticCodex -> true
+        else -> when (settings.themeMode) {
+            ThemeModeOption.LIGHT -> false
+            ThemeModeOption.DARK -> true
+            ThemeModeOption.SYSTEM -> systemDark
+        }
     }
 
     // Show the full-screen Paperflow Liquid Glass Authentication experience when requested
     var hasPassedAuthGateInSession by remember { mutableStateOf(true) }
-    var showFlashIntro by remember { mutableStateOf(false) }
+    var showFlashIntro by remember { mutableStateOf(true) }
 
     var pendingSourceLabel by remember { mutableStateOf("Device") }
 
@@ -205,7 +244,11 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
         viewModel.selectTab(MainTab.HOME)
     }
 
-    GlassPaperTheme(darkTheme = useDarkTheme, isGalacticCodex = isGalacticCodex) {
+    GlassPaperTheme(
+        darkTheme = useDarkTheme,
+        isGalacticCodex = isGalacticCodex,
+        isNothingOs = isNothingOs
+    ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (!authSession.isAuthenticated && !hasPassedAuthGateInSession) {
                 AuthenticationScreen(
@@ -221,7 +264,11 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
                 )
             } else {
                     LiquidAmbientBackground {
-                        Box(modifier = Modifier.fillMaxSize()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .nestedScroll(pullRefreshNestedScroll)
+                        ) {
                             when (val overlay = activeOverlay) {
                                 is ActiveOverlay.Authentication -> {
                                     AuthenticationScreen(
@@ -314,6 +361,16 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
                                     )
                                 }
 
+                                is ActiveOverlay.ThemePage -> {
+                                    ThemeScreen(
+                                        settings = settings,
+                                        onSelectAppStyle = { style -> viewModel.setAppStyle(style) },
+                                        onSelectThemeMode = { mode -> viewModel.setThemeMode(mode) },
+                                        onResetDefaults = { viewModel.resetThemeToDefaults() },
+                                        onBack = { viewModel.closeOverlay() }
+                                    )
+                                }
+
                                 is ActiveOverlay.ToolWorkspace -> {
                                     ToolWorkspaceOverlay(
                                         viewModel = viewModel,
@@ -351,6 +408,7 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
                                                         onOpenAuth = { viewModel.openAuthentication() },
                                                         onOpenGitHubRepo = { viewModel.openGitHubRepository() },
                                                         onReplayFlashIntro = { showFlashIntro = true },
+                                                        onRefreshPage = { viewModel.refreshAppPage() },
                                                         onNavigateToLibrary = { category ->
                                                             viewModel.setLibraryCategory(category)
                                                             viewModel.selectTab(MainTab.LIBRARY)
@@ -400,14 +458,21 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
                                     // Floating VisionOS-Inspired Translucent Liquid Glass Bottom Navigation Bar
                                     FloatingGlassNavigationBar(
                                         currentTab = currentTab,
-                                        onSelectTab = { viewModel.selectTab(it) },
+                                        onSelectTab = { selected ->
+                                            if (selected == currentTab) {
+                                                // Tapping the already active tab refreshes the page with the Android #101010 loading screen
+                                                viewModel.refreshAppPage()
+                                            } else {
+                                                viewModel.selectTab(selected)
+                                            }
+                                        },
                                         modifier = Modifier.align(Alignment.BottomCenter)
                                     )
                                 }
                             }
 
-                            // Daily Streak Celebration Modal (triggers ONLY once per calendar day after the Flash Intro finishes)
-                            if (activeOverlay !is ActiveOverlay.Authentication && !isAppStartingLoading && !showFlashIntro) {
+                            // Daily Streak Celebration Modal (triggers ONLY once per calendar day after startup loading finishes)
+                            if (activeOverlay !is ActiveOverlay.Authentication && !isAppStartingLoading && !isPageRefreshing && !showFlashIntro) {
                                 streakCelebrationEvent?.let { event ->
                                     StreakCelebrationModal(
                                         event = event,
@@ -416,6 +481,35 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
                                         onViewDetails = { viewModel.openStreakDetails() }
                                     )
                                 }
+                            }
+
+                            // Global Draggable Floating Liquid-Glass AI Chatbot Assistant
+                            // Works across Home, Tools, Library, Settings, PDF Reader, Notes, and Overlays
+                            if (!isAppStartingLoading && !isPageRefreshing && !showFlashIntro) {
+                                FloatingAiChatbotOverlay(
+                                    settings = settings,
+                                    activeOverlay = activeOverlay,
+                                    activeReaderPageIndex = activeReaderPageIndex,
+                                    documents = documents,
+                                    notes = notes,
+                                    messages = aiChatMessages,
+                                    isChatOpen = isAiChatPanelOpen,
+                                    isChatMaximized = isAiChatMaximized,
+                                    isAiThinking = isAiThinking,
+                                    onToggleChat = { viewModel.toggleAiChatPanel() },
+                                    onCloseChat = { viewModel.closeAiChatPanel() },
+                                    onToggleMaximize = { viewModel.toggleAiChatMaximized() },
+                                    onSendMessage = { prompt -> viewModel.sendAiChatMessage(prompt) },
+                                    onRegenerateLast = { viewModel.regenerateLastAiResponse() },
+                                    onClearConversation = { viewModel.clearAiChatConversation() },
+                                    onSaveResponseToNote = { content, badge ->
+                                        viewModel.saveAiResponseToNote(content, badge)
+                                    },
+                                    onSaveButtonPosition = { normX, normY ->
+                                        viewModel.setAiButtonPosition(normX, normY)
+                                    },
+                                    onShowSnackbar = { msg -> viewModel.showMessage(msg) }
+                                )
                             }
 
                             SnackbarHost(
@@ -445,9 +539,10 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
                 }
             )
 
-            // Full-Screen Play Store / Android System Organic Scalloped Blob Loading Screen (#101010) for heavy PDF tools
+            // Full-Screen Android / Play Store Organic Scalloped Blob Loading Screen (#101010)
+            // Triggers on app startup, page refresh (pull-to-refresh / menu refresh / re-tapping active tab), and heavy content loading
             PlayStoreSystemLoadingOverlay(
-                visible = toolState.isRunning
+                visible = isAppStartingLoading || isPageRefreshing || toolState.isRunning
             )
         }
     }

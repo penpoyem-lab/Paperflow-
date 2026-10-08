@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.security.MessageDigest
 import java.security.SecureRandom
-import java.util.Base64
+import android.util.Base64
 
 private val Context.authDataStore by preferencesDataStore(name = "paperflow_auth_vault")
 
@@ -279,7 +279,7 @@ class PaperflowAuthManager(private val context: Context) {
         private fun generateSaltBase64(): String {
             val bytes = ByteArray(32)
             SecureRandom().nextBytes(bytes)
-            return Base64.getEncoder(). withoutPadding().encodeToString(bytes)
+            return Base64.encodeToString(bytes, Base64.NO_WRAP or Base64.NO_PADDING)
         }
 
         private fun generateSixDigitCode(): String {
@@ -293,7 +293,7 @@ class PaperflowAuthManager(private val context: Context) {
             repeat(4096) {
                 current = digest.digest(current)
             }
-            return Base64.getEncoder().withoutPadding().encodeToString(current)
+            return Base64.encodeToString(current, Base64.NO_WRAP or Base64.NO_PADDING)
         }
 
         private data class VaultAccountRecord(
@@ -311,7 +311,7 @@ class PaperflowAuthManager(private val context: Context) {
                 val parts = entry.split("|")
                 if (parts.size >= 5) {
                     val email = parts[0]
-                    val name = String(Base64.getDecoder().decode(parts[1]), Charsets.UTF_8)
+                    val name = String(Base64.decode(parts[1], Base64.NO_WRAP or Base64.NO_PADDING), Charsets.UTF_8)
                     val salt = parts[2]
                     val hash = parts[3]
                     val verified = parts[4].toBoolean()
@@ -323,7 +323,10 @@ class PaperflowAuthManager(private val context: Context) {
 
         private fun serializeVault(accounts: Map<String, VaultAccountRecord>): String {
             return accounts.values.joinToString(";;") { rec ->
-                val encodedName = Base64.getEncoder().withoutPadding().encodeToString(rec.fullName.toByteArray(Charsets.UTF_8))
+                val encodedName = Base64.encodeToString(
+                    rec.fullName.toByteArray(Charsets.UTF_8),
+                    Base64.NO_WRAP or Base64.NO_PADDING
+                )
                 "${rec.email}|$encodedName|${rec.saltBase64}|${rec.passwordHashBase64}|${rec.verified}"
             }
         }

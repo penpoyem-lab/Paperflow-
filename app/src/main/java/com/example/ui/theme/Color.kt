@@ -44,3 +44,14 @@ val AnnotGreen = Color(0xFF22C55E)
 val AnnotBlue = Color(0xFF3B82F6)
 val AnnotPink = Color(0xFFEC4899)
 val AnnotPurple = Color(0xFFA855F7)
+
+// Nothing OS • Liquid Glass Edition Palette
+val NothingCrimsonRed = Color(0xFFD71921)
+val NothingBrightRed = Color(0xFFFF2A31)
+val NothingObsidianBlack = Color(0xFF050507)
+val NothingCarbonSurface = Color(0xFF101216)
+val NothingSmokedGlass = Color(0xB314161B)
+val NothingGlyphWhite = Color(0xFFF5F6F8)
+val NothingMatrixSilver = Color(0xFF9EA4B0)
+val NothingCircuitGray = Color(0xFF2A2E37)
+

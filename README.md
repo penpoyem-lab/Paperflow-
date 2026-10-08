@@ -1,59 +1,130 @@
 # Paperflow — PDF Reader & Notes
 
-**PDF Reader • Notes • Documents • Tools**
+<div align="center">
 
-Paperflow is a modern, local-first Android application built with Kotlin, Jetpack Compose, and Material 3 featuring a **VisionOS-inspired Liquid Glass & Glassmorphism UI**. All PDF rendering, page annotations, study notes, and PDF document tools operate strictly on-device with zero cloud uploads.
+<img src="app/src/main/res/drawable/paperflow_red_black_icon_1791443745243.jpg" alt="Paperflow App Icon" width="110" style="border-radius: 24px;" />
 
----
+### **PDF Reader • PDF Toolkit • Linked Study Notes • Floating AI Assistant**
 
-## Features
+*A modern, 100% local-first Android PDF Reader, Document Organizer, and Study Notes workspace crafted with Kotlin, Jetpack Compose, and an Apple VisionOS-inspired Liquid Glass design system.*
 
-- **Liquid Glass Interface**: Translucent frosted surfaces, iridescent light refraction, custom typography (`Plus Jakarta Sans` & `Inter`), and dedicated Light and Dark themes.
-- **Floating Glass Navigation Bar**: Safe-area-aware capsule navigation bar with **Home**, **Tools**, **Library**, and **Settings** destinations.
-- **PDF Library & Native SAF Picker**:
-  - Import and open PDFs from Android device storage, Downloads, Documents, or cloud providers via Android's Storage Access Framework (`OpenDocument`).
-  - Stores document URI references and metadata in Room (`paperflow.db`) without bloating the database with binary payloads.
-  - Supports **ALL**, **PDFs**, **NOTES**, **RECENT**, and **FAVORITES** categories, live search, sorting, Grid/List view switching, rename, duplicate, share, and delete.
-- **Real PDF Reader (`android.graphics.pdf.PdfRenderer`)**:
-  - High-resolution vertical page scrolling, pinch-to-zoom, double-tap zoom, fit-width reset, and page thumbnail strip.
-  - Auto-hiding floating glass top and bottom toolbars with Light, Sepia, and Dark reader color filters.
-  - In-document search with page match navigation and clear notice when a document contains scanned pages.
-- **PDF Annotation Studio**:
-  - Persistent page annotations in **Yellow**, **Green**, **Blue**, **Pink**, and **Purple**: Highlight, Underline, Strikethrough, Pen, Marker, Sticky Text Notes, and Eraser.
-- **Study Notes & Bookmarks**:
-  - Rich study note editor with formatting tools (Bold, Italic, Underline, Bullet List, Numbered List, Highlight, Checklist) and direct PDF page linking.
-  - Instant page bookmarking and dedicated Bookmarks sheet.
-- **Offline PDF Tools (19 Active Utilities)**:
-  - **Edit**: Merge PDF, Split PDF, Rotate PDF (90°/180°/270°), Rearrange PDF, Delete Pages, Extract Pages, Page Numbers, Diagonal Watermark, and Ink Signature Pad.
-  - **Optimize**: Compress PDF, Repair PDF, and Grayscale conversion.
-  - **Security**: Protect PDF (local password lock), Unlock PDF (password verification & removal), and Document Metadata inspector.
-  - **Convert**: PDF to Image (PNG export), Image to PDF, Extract Images, and PDF to Text.
-- **Daily Reading Streak System**:
-  - Automatic daily check-ins, 7-day calendar strip, milestone progression badges, and Snapchat-style `🔥 + count` streak pills.
-- **Galactic Scholar Photo Theme & Repository Explorer**:
-  - Switch between Light, Dark, System, and the **Galactic Scholar (Cosmic Codex)** photo theme in Settings.
-  - Built-in **GitHub Repository Explorer** (`penpoyem-create / Paperflow-pdf-reader-Notes`) with branch switching, commit history, interactive file tree, and tabbed `README` / `MIT license` viewer.
+[![Platform](https://img.shields.io/badge/Platform-Android%207.0%2B%20(API%2024%2B)-238636?style=for-the-badge&logo=android&logoColor=white)](#local-build-instructions)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](#architecture)
+[![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)](#app-interface--visual-tour)
+[![License: MIT](https://img.shields.io/badge/License-MIT-0969DA?style=for-the-badge)](LICENSE)
+
+</div>
 
 ---
 
-## Architecture
+## 📸 App Interface & Visual Showcase
 
-- **UI Layer (`com.example.ui`)**: Jetpack Compose screens (`HomeScreen`, `LibraryScreen`, `ToolsScreen`, `PdfReaderScreen`, `NotesAndPickerScreen`, `SettingsScreen`) and reusable Liquid Glass components (`GlassComponents.kt`).
-- **State Management**: `GlassPaperViewModel` exposing reactive `StateFlow` streams collected via `collectAsStateWithLifecycle()`.
-- **Data Layer (`com.example.data`)**:
-  - **Room Database (`paperflow.db`)**: Stores `PdfDocumentEntity` (URI/file references), `NoteEntity`, `BookmarkEntity`, and `AnnotationEntity`.
-  - **Jetpack DataStore**: Persists theme, reader layout, text size, and storage preferences.
-- **PDF Engine (`com.example.pdf.PdfEngine`)**: Thread-safe `Mutex`-protected wrapper around Android's native `PdfRenderer` and `PdfDocument` APIs with `LruCache` thumbnail caching.
+### Multi-Panel App Interface Overview
+<div align="center">
+  <img src="app/src/main/res/drawable/img_app_interface_showcase_1791433886976.jpg" alt="Paperflow App Interface Showcase — Home Workspace, PDF Reader & Annotation Studio, Offline PDF Toolkit & Floating AI Assistant" width="100%" />
+  <p><em>Left: Home Workspace & Daily Streak • Center: High-Resolution PDF Reader & Annotation Studio • Right: 19 Offline PDF Tools & Draggable Liquid-Glass AI Assistant</em></p>
+</div>
 
 ---
 
-## Local Build Instructions
+### Visual Editions, Themes & Brand Assets
+
+| VisionOS Liquid Glass Hero | Galactic Scholar (Cosmic Codex) Edition | 3D Crystalline PDF Engine Emblem |
+| :---: | :---: | :---: |
+| <img src="app/src/main/res/drawable/img_hero_liquid_glass_1791391701805.jpg" alt="VisionOS Liquid Glass Hero Banner" width="320" /> | <img src="app/src/main/res/drawable/img_hero_galactic_codex_1791427754468.jpg" alt="Galactic Scholar Cosmic Codex Photo Theme" width="320" /> | <img src="app/src/main/res/drawable/img_pdf_3d_badge_1791391714001.jpg" alt="3D Crystalline PDF Badge" width="210" /> |
+| **Default Liquid Glass Workspace**<br/>Frosted translucent layers, specular highlights, and dynamic cyan/indigo refraction. | **Galactic Scholar Photo Theme**<br/>Deep-space midnight obsidian & warm gold illumination configurable in **Settings**. | **Native On-Device PDF Engine**<br/>Hardware-accelerated `PdfRenderer` & `PdfDocument` processing with zero cloud uploads. |
+
+---
+
+## 🖥️ Interactive Interface Breakdown
+
+Paperflow is organized around a **Safe-Area Floating Liquid Glass Navigation Bar** and full-screen interactive workspaces:
+
+### 1. 🏠 Home Workspace & Daily Reading Streak (`HomeScreen.kt`)
+- **Hero Banner & Quick Actions**: Instant 1-tap access to **Open PDF** (Android Storage Access Framework), **Merge PDF**, **Split PDF**, **Compress**, and **New Study Note**.
+- **Snapchat-Style Streak Pill (`🔥 + count`)**: Located in the top header bar; tapping opens the full **Daily Reading Streak** celebration modal and 7-day check-in calendar strip.
+- **Continue Reading Carousel**: Displays your most recently opened PDF documents with live reading progress bars, page counters, and last-read timestamps.
+- **Recent Study Notes**: Quick preview cards linked directly to specific PDF documents and page numbers.
+
+### 2. 📖 Native PDF Reader & Annotation Studio (`PdfReaderScreen.kt`)
+- **Crisp Multi-Page Rendering**: Powered by Android's native `android.graphics.pdf.PdfRenderer` with `Mutex`-synchronized bitmap rendering and `LruCache` page thumbnail caching.
+- **Fluid Gestures**: Pinch-to-zoom (`1.0x` to `4.0x`), double-tap zoom toggle, vertical/horizontal page scrolling, fit-to-width reset, and interactive bottom thumbnail scrubber.
+- **Reader Color Modes**: Switch seamlessly between **Light**, **Sepia (Warm Paper)**, and **Dark (AMOLED Night)** reading filters.
+- **Persistent Annotation Studio**: Draw and save **Highlight**, **Underline**, **Strikethrough**, **Pen**, **Marker**, **Sticky Text Notes**, and **Eraser** strokes in **Yellow**, **Green**, **Blue**, **Pink**, and **Purple**.
+
+### 3. 🛠️ 19 Offline PDF Tools (`ToolsScreen.kt` & `PdfEngine.kt`)
+All 19 utilities execute 100% locally on your Android device and save generated files directly to local storage and your Paperflow Library:
+
+| Category | Included Tools |
+| :--- | :--- |
+| **Edit & Arrange** | **Merge PDF**, **Split PDF**, **Rotate PDF** (90°/180°/270°), **Rearrange Pages**, **Delete Pages**, **Extract Pages**, **Page Numbers**, **Diagonal Watermark**, **Digital Ink Signature Pad** |
+| **Optimize** | **Compress PDF**, **Repair PDF**, **Grayscale PDF** |
+| **Security & Metadata** | **Protect PDF** (Password Lock), **Unlock PDF**, **Document Metadata Inspector** |
+| **Convert & Extract** | **PDF to Image (PNG)**, **Image to PDF**, **Extract Embedded Images**, **PDF to Text** |
+
+### 4. 📚 Unified PDF & Notes Library (`LibraryScreen.kt`)
+- **Category Filters**: Filter by **ALL**, **PDFs**, **NOTES**, **RECENT**, and **FAVORITES**.
+- **Search, Sort & View Modes**: Live search bar, sort by Name / Date / Size, and toggle between **Grid View** and **Detailed List View**.
+- **Document Actions**: Favorite star toggle, Rename, Duplicate, Share via Android system sheet, Export, or Delete.
+
+### 5. ✨ Draggable Floating Liquid-Glass AI Assistant (`FloatingAiChatbot.kt`)
+- **Bespoke Animated Prism Star Logo**: Features counter-rotating cyan, electric-blue, and violet orbital rings with a breathing crystalline star core.
+- **Smooth Drag & 4-Edge Magnetic Snap**: Drag the floating orb anywhere on screen with safe-area inset clamping and spring physics that snap cleanly to the nearest screen edge (**Left**, **Right**, **Top**, or **Bottom**).
+- **Document-Aware Intelligence**: Summarizes your currently open PDF, explains complex sections, extracts key takeaways, translates passages, and saves AI responses directly as **Study Notes**.
+
+### 6. 💻 Built-in GitHub Repository Explorer (`GitHubRepositoryScreen.kt`)
+- Accessible from **Home** and **Settings**, featuring branch/tag switching (`main`, `feat/liquid-glass-v2.6`), commit history viewer, interactive file tree browser, and a tabbed **README / MIT License** preview with live App Interface gallery cards.
+
+---
+
+## 🏗️ Architecture & Tech Stack
+
+```text
+Paperflow-pdf-reader-Notes/
+├── .github/workflows/
+│   └── build-apk.yml                          # Automated Android CI/CD Debug APK & GitHub Release pipeline
+├── app/
+│   ├── src/main/
+│   │   ├── java/com/example/
+│   │   │   ├── MainActivity.kt                # 165Hz frame-paced window host, Flash Intro & Floating AI overlay
+│   │   │   ├── ai/
+│   │   │   │   └── PaperflowAiService.kt      # Gemini REST API & local PDF context engine
+│   │   │   ├── auth/
+│   │   │   │   └── PaperflowAuthManager.kt    # Local session & profile management
+│   │   │   ├── data/
+│   │   │   │   ├── Entities.kt                # Room entities (PDFs, Notes, Bookmarks, Annotations, AI Chat)
+│   │   │   │   ├── GlassPaperDatabase.kt      # Room SQLite database (paperflow.db)
+│   │   │   │   ├── GlassPaperRepository.kt    # Single source of truth repository
+│   │   │   │   ├── PaperflowGitHubRepoData.kt # Repository explorer metadata & file tree
+│   │   │   │   └── SettingsDataStore.kt       # Jetpack DataStore preferences (Theme, Streak, AI Orb position)
+│   │   │   ├── pdf/
+│   │   │   │   └── PdfEngine.kt               # Thread-safe native PdfRenderer & 19 PDF manipulation tools
+│   │   │   └── ui/
+│   │   │       ├── GlassPaperViewModel.kt     # Reactive MVVM StateFlows
+│   │   │       ├── components/                # Liquid Glass cards, organic loader, Flash Intro & AI Chatbot
+│   │   │       ├── screens/                   # Home, Library, Tools, PdfReader, Notes, Streak, GitHub, Settings
+│   │   │       └── theme/                     # VisionOS Liquid Glass & Galactic Scholar color/typography system
+│   │   ├── res/
+│   │   │   ├── drawable/                      # App interface showcase banners, Galactic Codex art & icons
+│   │   │   ├── font/                          # Bundled Plus Jakarta Sans & Inter TTF fonts
+│   │   │   └── values/                        # Strings & adaptive themes
+│   │   └── AndroidManifest.xml
+│   └── build.gradle.kts
+├── gradle/libs.versions.toml                  # Centralized dependency version catalog
+├── LICENSE                                    # MIT License
+├── README.md                                  # Project documentation & visual interface guide
+└── settings.gradle.kts
+```
+
+---
+
+## 🚀 Local Build Instructions
 
 ### Prerequisites
 - **JDK**: Java 17+
 - **Gradle**: 9.3.1
 - **Android Gradle Plugin (AGP)**: 9.1.1
-- **Android SDK**: `compileSdk` 36 (`minSdk` 24)
+- **Android SDK**: `compileSdk` 36 (`minSdk` 24, `targetSdk` 35)
 
 ### Build Debug APK
 From the repository root, run:
@@ -70,24 +141,24 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ---
 
-## GitHub Actions Debug APK & Release Workflow
+## ⚙️ GitHub Actions Debug APK & Release Workflow
 
 This repository includes an automated GitHub Actions workflow at `.github/workflows/build-apk.yml`:
 
 1. **Triggers**: Runs automatically on `push` to `main` and supports manual `workflow_dispatch`.
 2. **Environment**: Configures Java 17 and Gradle 9.3.1 on `ubuntu-latest`, generating a temporary `debug.keystore` only if one is not already present on the runner.
 3. **Artifact Upload**: Builds `app/build/outputs/apk/debug/app-debug.apk` and uploads it as the `app-debug-apk` workflow artifact.
-4. **GitHub Release Publishing**: Publishes a uniquely tagged GitHub Release (`debug-apk-build-<RUN_NUMBER>-<RUN_ATTEMPT>`) containing the directly downloadable `<repo>-debug-build-<RUN_NUMBER>.apk` asset. If release creation fails, the `app-debug-apk` Actions artifact remains preserved and downloadable.
+4. **GitHub Release Publishing**: Publishes a uniquely tagged GitHub Release (`debug-apk-build-<RUN_NUMBER>-<RUN_ATTEMPT>`) containing the directly downloadable `<repo>-debug-build-<RUN_NUMBER>.apk` asset.
 
 ---
 
-## Privacy
+## 🔒 Privacy
 
-**Your documents stay on your device.**
-Paperflow is 100% local-first. Documents, annotations, bookmarks, and notes never leave your device unless you explicitly invoke the Android system Share sheet.
+**Your documents stay on your device.**  
+Paperflow is local-first. All PDF rendering, page modifications, annotations, bookmarks, and study notes are stored on-device and never leave your phone unless you explicitly invoke the Android system Share sheet.
 
 ---
 
-## License
+## 📄 License
 
 Licensed under the [MIT License](LICENSE).

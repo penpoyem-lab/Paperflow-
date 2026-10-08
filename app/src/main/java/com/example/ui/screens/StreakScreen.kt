@@ -94,14 +94,52 @@ import com.example.ui.theme.PrismViolet
 import com.example.ui.theme.SolarAmber
 import com.example.ui.theme.WarmGold
 import kotlinx.coroutines.delay
-import java.time.DayOfWeek
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
+import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+
+private data class StreakDayEntry(
+    val isoDate: String,
+    val dayOfMonth: Int,
+    val narrowDayName: String,
+    val shortDayName: String,
+    val isToday: Boolean
+)
+
+private fun buildRecentStreakDays(
+    count: Int,
+    anchorIsoDate: String? = null
+): List<StreakDayEntry> {
+    val isoFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    val shortFormat = SimpleDateFormat("EEE", Locale.getDefault())
+    val baseCalendar = Calendar.getInstance()
+    if (!anchorIsoDate.isNullOrBlank()) {
+        runCatching {
+            isoFormat.parse(anchorIsoDate)?.let { parsed ->
+                baseCalendar.time = parsed
+            }
+        }
+    }
+    val todayIso = isoFormat.format(baseCalendar.time)
+    return (-(count - 1)..0).map { offset ->
+        val cal = (baseCalendar.clone() as Calendar).apply {
+            add(Calendar.DAY_OF_YEAR, offset)
+        }
+        val iso = isoFormat.format(cal.time)
+        val shortName = shortFormat.format(cal.time)
+        val narrowName = shortName.firstOrNull()?.uppercaseChar()?.toString() ?: ""
+        StreakDayEntry(
+            isoDate = iso,
+            dayOfMonth = cal.get(Calendar.DAY_OF_MONTH),
+            narrowDayName = narrowName,
+            shortDayName = shortName,
+            isToday = iso == todayIso
+        )
+    }
+}
 
 @Composable
 fun StreakCelebrationModal(
@@ -524,12 +562,8 @@ private fun WeeklyStreakMiniStrip(
     currentStreak: Int,
     lastCheckInDate: String
 ) {
-    val today = remember(lastCheckInDate) {
-        runCatching { LocalDate.parse(lastCheckInDate, DateTimeFormatter.ISO_LOCAL_DATE) }
-            .getOrDefault(LocalDate.now())
-    }
-    val days = remember(today) {
-        (-6..0).map { offset -> today.plusDays(offset.toLong()) }
+    val days = remember(lastCheckInDate) {
+        buildRecentStreakDays(count = 7, anchorIsoDate = lastCheckInDate)
     }
 
     Row(
@@ -546,7 +580,7 @@ private fun WeeklyStreakMiniStrip(
             val daysAgo = 6 - idx
             val isActive = daysAgo < currentStreak
             val isToday = daysAgo == 0
-            val dayLabel = date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault())
+            val dayLabel = date.narrowDayName
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -605,16 +639,15 @@ fun StreakDetailsOverlay(
     BackHandler(onBack = onBack)
 
     val glass = LocalGlassColors.current
-    val today = remember { LocalDate.now() }
 
     // Last 7 days for Weekly Activity
-    val currentWeekDays = remember(today) {
-        (-6..0).map { offset -> today.plusDays(offset.toLong()) }
+    val currentWeekDays = remember {
+        buildRecentStreakDays(count = 7)
     }
 
     // Last 28 days (4 weeks) for Liquid Glass Calendar Heatmap
-    val last28Days = remember(today) {
-        (-27..0).map { offset -> today.plusDays(offset.toLong()) }
+    val last28Days = remember {
+        buildRecentStreakDays(count = 28)
     }
 
     val activeStreakCount = streakData.currentStreak.coerceAtLeast(1)
@@ -827,10 +860,10 @@ fun StreakDetailsOverlay(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         currentWeekDays.forEach { date ->
-                            val iso = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
-                            val checkedIn = streakData.checkInHistoryDates.contains(iso) || date == today
-                            val isToday = date == today
-                            val dayName = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                            val iso = date.isoDate
+                            val checkedIn = streakData.checkInHistoryDates.contains(iso) || date.isToday
+                            val isToday = date.isToday
+                            val dayName = date.shortDayName
 
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -920,9 +953,9 @@ fun StreakDetailsOverlay(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             week.forEach { date ->
-                                val iso = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
-                                val active = streakData.checkInHistoryDates.contains(iso) || date == today
-                                val isToday = date == today
+                                val iso = date.isoDate
+                                val active = streakData.checkInHistoryDates.contains(iso) || date.isToday
+                                val isToday = date.isToday
 
                                 Box(
                                     modifier = Modifier

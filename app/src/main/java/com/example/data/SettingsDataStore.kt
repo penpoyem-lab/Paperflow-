@@ -3,24 +3,43 @@ package com.example.data
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import kotlin.math.roundToLong
 
 private val Context.dataStore by preferencesDataStore(name = "glasspaper_settings")
 
-enum class AppThemeOption { LIGHT, DARK, SYSTEM, GALACTIC_CODEX }
+enum class AppThemeOption { LIGHT, DARK, SYSTEM, GALACTIC_CODEX, NOTHING_OS_GLASS }
+enum class AppStyleOption(val label: String) {
+    NOTHING_UI("Nothing UI"),
+    APPLE_UI("Apple UI"),
+    JOURNEY_AWAITS_UI("Journey Awaits UI")
+}
+enum class ThemeModeOption(val label: String) {
+    SYSTEM("System"),
+    LIGHT("Light"),
+    DARK("Dark")
+}
 enum class ReaderThemeOption { LIGHT, SEPIA, DARK }
 enum class TextSizeOption { SMALL, MEDIUM, LARGE }
 enum class PageLayoutOption { SINGLE_PAGE, CONTINUOUS, TWO_PAGE }
+enum class AiButtonSizeOption(val label: String, val sizeDp: Int) {
+    COMPACT("Compact", 48),
+    MEDIUM("Standard", 56),
+    LARGE("Large", 64)
+}
 
 data class AppSettings(
-    val appTheme: AppThemeOption = AppThemeOption.LIGHT,
+    val appTheme: AppThemeOption = AppThemeOption.NOTHING_OS_GLASS,
+    val appStyle: AppStyleOption = AppStyleOption.NOTHING_UI,
+    val themeMode: ThemeModeOption = ThemeModeOption.SYSTEM,
     val readerTheme: ReaderThemeOption = ReaderThemeOption.LIGHT,
     val textSize: TextSizeOption = TextSizeOption.MEDIUM,
     val pageLayout: PageLayoutOption = PageLayoutOption.CONTINUOUS,
@@ -29,7 +48,13 @@ data class AppSettings(
     val rememberReadingPosition: Boolean = true,
     val hapticFeedback: Boolean = true,
     val defaultDownloadLocation: String = "Documents/Paperflow",
-    val isGridViewInLibrary: Boolean = true
+    val isGridViewInLibrary: Boolean = true,
+    val aiAssistantEnabled: Boolean = true,
+    val aiHideWhileReadingPdf: Boolean = false,
+    val aiButtonSize: AiButtonSizeOption = AiButtonSizeOption.MEDIUM,
+    val aiButtonOpacity: Float = 0.94f,
+    val aiButtonNormalizedX: Float = 1.0f, // 0f = left edge, 1f = right edge, or intermediate on top/bottom
+    val aiButtonNormalizedY: Float = 0.72f // 0f = top edge, 1f = bottom edge
 )
 
 data class StreakData(
@@ -53,6 +78,8 @@ data class StreakCheckInEvent(
 class SettingsDataStore(private val context: Context) {
     private object Keys {
         val APP_THEME = stringPreferencesKey("app_theme")
+        val APP_STYLE = stringPreferencesKey("app_style")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
         val READER_THEME = stringPreferencesKey("reader_theme")
         val TEXT_SIZE = stringPreferencesKey("text_size")
         val PAGE_LAYOUT = stringPreferencesKey("page_layout")
@@ -69,12 +96,36 @@ class SettingsDataStore(private val context: Context) {
         val LAST_CHECK_IN_DATE = stringPreferencesKey("streak_last_date")
         val CHECK_IN_HISTORY = stringPreferencesKey("streak_history_dates")
         val UNLOCKED_MILESTONES = stringPreferencesKey("streak_unlocked_milestones")
+
+        // Floating AI Assistant Persistence Keys
+        val AI_ENABLED = booleanPreferencesKey("ai_assistant_enabled")
+        val AI_HIDE_IN_PDF = booleanPreferencesKey("ai_hide_while_reading_pdf")
+        val AI_BUTTON_SIZE = stringPreferencesKey("ai_button_size")
+        val AI_BUTTON_OPACITY = floatPreferencesKey("ai_button_opacity")
+        val AI_POS_X = floatPreferencesKey("ai_button_norm_x")
+        val AI_POS_Y = floatPreferencesKey("ai_button_norm_y")
     }
 
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { prefs ->
+        val rawTheme = prefs[Keys.APP_THEME]?.let { runCatching { AppThemeOption.valueOf(it) }.getOrNull() }
+            ?: AppThemeOption.NOTHING_OS_GLASS
+        val resolvedStyle = prefs[Keys.APP_STYLE]?.let { runCatching { AppStyleOption.valueOf(it) }.getOrNull() }
+            ?: when (rawTheme) {
+                AppThemeOption.NOTHING_OS_GLASS -> AppStyleOption.NOTHING_UI
+                AppThemeOption.GALACTIC_CODEX -> AppStyleOption.JOURNEY_AWAITS_UI
+                else -> AppStyleOption.NOTHING_UI
+            }
+        val resolvedThemeMode = prefs[Keys.THEME_MODE]?.let { runCatching { ThemeModeOption.valueOf(it) }.getOrNull() }
+            ?: when (rawTheme) {
+                AppThemeOption.LIGHT -> ThemeModeOption.LIGHT
+                AppThemeOption.DARK -> ThemeModeOption.DARK
+                else -> ThemeModeOption.SYSTEM
+            }
+
         AppSettings(
-            appTheme = prefs[Keys.APP_THEME]?.let { runCatching { AppThemeOption.valueOf(it) }.getOrNull() }
-                ?: AppThemeOption.LIGHT,
+            appTheme = rawTheme,
+            appStyle = resolvedStyle,
+            themeMode = resolvedThemeMode,
             readerTheme = prefs[Keys.READER_THEME]?.let { runCatching { ReaderThemeOption.valueOf(it) }.getOrNull() }
                 ?: ReaderThemeOption.LIGHT,
             textSize = prefs[Keys.TEXT_SIZE]?.let { runCatching { TextSizeOption.valueOf(it) }.getOrNull() }
@@ -86,7 +137,14 @@ class SettingsDataStore(private val context: Context) {
             rememberReadingPosition = prefs[Keys.REMEMBER_POS] ?: true,
             hapticFeedback = prefs[Keys.HAPTIC] ?: true,
             defaultDownloadLocation = prefs[Keys.DOWNLOAD_LOC] ?: "Documents/Paperflow",
-            isGridViewInLibrary = prefs[Keys.LIBRARY_GRID] ?: false
+            isGridViewInLibrary = prefs[Keys.LIBRARY_GRID] ?: false,
+            aiAssistantEnabled = prefs[Keys.AI_ENABLED] ?: true,
+            aiHideWhileReadingPdf = prefs[Keys.AI_HIDE_IN_PDF] ?: false,
+            aiButtonSize = prefs[Keys.AI_BUTTON_SIZE]?.let { runCatching { AiButtonSizeOption.valueOf(it) }.getOrNull() }
+                ?: AiButtonSizeOption.MEDIUM,
+            aiButtonOpacity = (prefs[Keys.AI_BUTTON_OPACITY] ?: 0.94f).coerceIn(0.35f, 1.0f),
+            aiButtonNormalizedX = (prefs[Keys.AI_POS_X] ?: 1.0f).coerceIn(0f, 1f),
+            aiButtonNormalizedY = (prefs[Keys.AI_POS_Y] ?: 0.72f).coerceIn(0f, 1f)
         )
     }
 
@@ -120,8 +178,7 @@ class SettingsDataStore(private val context: Context) {
      * Returns a [StreakCheckInEvent] ONLY when a new daily check-in is registered today; returns null if already checked in today.
      */
     suspend fun registerDailyCheckInIfNeeded(): StreakCheckInEvent? {
-        val today = LocalDate.now()
-        val todayStr = today.format(DateTimeFormatter.ISO_LOCAL_DATE)
+        val todayStr = getTodayIsoDate()
         var checkInEvent: StreakCheckInEvent? = null
 
         context.dataStore.edit { prefs ->
@@ -135,20 +192,20 @@ class SettingsDataStore(private val context: Context) {
                 return@edit
             }
 
-            val parsedLastDate = if (lastDateStr.isNotBlank()) {
-                runCatching { LocalDate.parse(lastDateStr, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
+            val daysBetween = if (lastDateStr.isNotBlank()) {
+                daysBetweenIsoDates(lastDateStr, todayStr)
             } else null
 
             val newStreak = when {
-                parsedLastDate == null -> 1 // First-ever app open
-                ChronoUnit.DAYS.between(parsedLastDate, today) == 1L -> prevStreak + 1 // Consecutive calendar day
-                ChronoUnit.DAYS.between(parsedLastDate, today) <= 0L -> prevStreak.coerceAtLeast(1)
+                daysBetween == null -> 1 // First-ever app open
+                daysBetween == 1L -> prevStreak + 1 // Consecutive calendar day
+                daysBetween <= 0L -> prevStreak.coerceAtLeast(1)
                 else -> 1 // Missed 1 or more full calendar days -> reset active streak to 1
             }
 
             val animatedFromStreak = when {
-                parsedLastDate == null -> 0
-                ChronoUnit.DAYS.between(parsedLastDate, today) == 1L -> prevStreak
+                daysBetween == null -> 0
+                daysBetween == 1L -> prevStreak
                 else -> 0
             }
 
@@ -198,7 +255,68 @@ class SettingsDataStore(private val context: Context) {
     }
 
     suspend fun setAppTheme(option: AppThemeOption) {
-        context.dataStore.edit { it[Keys.APP_THEME] = option.name }
+        context.dataStore.edit { prefs ->
+            prefs[Keys.APP_THEME] = option.name
+            when (option) {
+                AppThemeOption.NOTHING_OS_GLASS -> {
+                    prefs[Keys.APP_STYLE] = AppStyleOption.NOTHING_UI.name
+                }
+                AppThemeOption.GALACTIC_CODEX -> {
+                    prefs[Keys.APP_STYLE] = AppStyleOption.JOURNEY_AWAITS_UI.name
+                }
+                AppThemeOption.LIGHT -> {
+                    prefs[Keys.APP_STYLE] = AppStyleOption.APPLE_UI.name
+                    prefs[Keys.THEME_MODE] = ThemeModeOption.LIGHT.name
+                }
+                AppThemeOption.DARK -> {
+                    prefs[Keys.APP_STYLE] = AppStyleOption.APPLE_UI.name
+                    prefs[Keys.THEME_MODE] = ThemeModeOption.DARK.name
+                }
+                AppThemeOption.SYSTEM -> {
+                    prefs[Keys.THEME_MODE] = ThemeModeOption.SYSTEM.name
+                }
+            }
+        }
+    }
+
+    suspend fun setAppStyle(style: AppStyleOption) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.APP_STYLE] = style.name
+            val currentMode = prefs[Keys.THEME_MODE]?.let { runCatching { ThemeModeOption.valueOf(it) }.getOrNull() }
+                ?: ThemeModeOption.SYSTEM
+            prefs[Keys.APP_THEME] = when (style) {
+                AppStyleOption.NOTHING_UI -> AppThemeOption.NOTHING_OS_GLASS.name
+                AppStyleOption.JOURNEY_AWAITS_UI -> AppThemeOption.GALACTIC_CODEX.name
+                AppStyleOption.APPLE_UI -> when (currentMode) {
+                    ThemeModeOption.LIGHT -> AppThemeOption.LIGHT.name
+                    ThemeModeOption.DARK -> AppThemeOption.DARK.name
+                    ThemeModeOption.SYSTEM -> AppThemeOption.SYSTEM.name
+                }
+            }
+        }
+    }
+
+    suspend fun setThemeMode(mode: ThemeModeOption) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.THEME_MODE] = mode.name
+            val currentStyle = prefs[Keys.APP_STYLE]?.let { runCatching { AppStyleOption.valueOf(it) }.getOrNull() }
+                ?: AppStyleOption.NOTHING_UI
+            if (currentStyle == AppStyleOption.APPLE_UI) {
+                prefs[Keys.APP_THEME] = when (mode) {
+                    ThemeModeOption.LIGHT -> AppThemeOption.LIGHT.name
+                    ThemeModeOption.DARK -> AppThemeOption.DARK.name
+                    ThemeModeOption.SYSTEM -> AppThemeOption.SYSTEM.name
+                }
+            }
+        }
+    }
+
+    suspend fun resetThemeToDefaults() {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.APP_STYLE] = AppStyleOption.NOTHING_UI.name
+            prefs[Keys.THEME_MODE] = ThemeModeOption.SYSTEM.name
+            prefs[Keys.APP_THEME] = AppThemeOption.NOTHING_OS_GLASS.name
+        }
     }
 
     suspend fun setReaderTheme(option: ReaderThemeOption) {
@@ -237,12 +355,71 @@ class SettingsDataStore(private val context: Context) {
         context.dataStore.edit { it[Keys.LIBRARY_GRID] = isGrid }
     }
 
+    suspend fun setAiAssistantEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.AI_ENABLED] = enabled }
+    }
+
+    suspend fun setAiHideWhileReadingPdf(hide: Boolean) {
+        context.dataStore.edit { it[Keys.AI_HIDE_IN_PDF] = hide }
+    }
+
+    suspend fun setAiButtonSize(size: AiButtonSizeOption) {
+        context.dataStore.edit { it[Keys.AI_BUTTON_SIZE] = size.name }
+    }
+
+    suspend fun setAiButtonOpacity(opacity: Float) {
+        context.dataStore.edit { it[Keys.AI_BUTTON_OPACITY] = opacity.coerceIn(0.35f, 1.0f) }
+    }
+
+    suspend fun setAiButtonPosition(normalizedX: Float, normalizedY: Float) {
+        context.dataStore.edit {
+            it[Keys.AI_POS_X] = normalizedX.coerceIn(0f, 1f)
+            it[Keys.AI_POS_Y] = normalizedY.coerceIn(0f, 1f)
+        }
+    }
+
+    suspend fun resetAiButtonPosition() {
+        context.dataStore.edit {
+            it[Keys.AI_POS_X] = 1.0f
+            it[Keys.AI_POS_Y] = 0.72f
+        }
+    }
+
     suspend fun resetSettings() {
         context.dataStore.edit { it.clear() }
     }
 
     companion object {
         val MILESTONE_DAYS = listOf(3, 7, 14, 30, 50, 100, 365)
+
+        fun getTodayIsoDate(): String {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            return sdf.format(Calendar.getInstance().time)
+        }
+
+        fun daysBetweenIsoDates(startIso: String, endIso: String): Long? {
+            return runCatching {
+                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                val startDate = sdf.parse(startIso) ?: return null
+                val endDate = sdf.parse(endIso) ?: return null
+                val startCal = Calendar.getInstance().apply {
+                    time = startDate
+                    set(Calendar.HOUR_OF_DAY, 12)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                val endCal = Calendar.getInstance().apply {
+                    time = endDate
+                    set(Calendar.HOUR_OF_DAY, 12)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                val diffMillis = endCal.timeInMillis - startCal.timeInMillis
+                (diffMillis / (24.0 * 60.0 * 60.0 * 1000.0)).roundToLong()
+            }.getOrNull()
+        }
 
         fun getMilestoneTitle(days: Int): String? = when (days) {
             3 -> "3 DAYS — GREAT START!"

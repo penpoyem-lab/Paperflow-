@@ -29,6 +29,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -54,11 +57,13 @@ import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.FolderCopy
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -75,6 +80,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -86,17 +92,25 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.MainTab
 import com.example.ui.theme.CrystalTeal
 import com.example.ui.theme.ElectricBlue
+import com.example.ui.theme.EmeraldGreen
 import com.example.ui.theme.IridescentPink
 import com.example.ui.theme.LiquidCyan
 import com.example.ui.theme.LocalGlassColors
+import com.example.ui.theme.NothingBrightRed
+import com.example.ui.theme.NothingCarbonSurface
+import com.example.ui.theme.NothingCrimsonRed
+import com.example.ui.theme.NothingGlyphWhite
+import com.example.ui.theme.NothingObsidianBlack
 import com.example.ui.theme.PrismPurple
 import com.example.ui.theme.PrismViolet
 import com.example.ui.theme.SolarAmber
@@ -115,6 +129,43 @@ fun LiquidAmbientBackground(
             .drawWithCache {
                 val w = size.width
                 val h = size.height
+
+                val nothingBgBrush = Brush.verticalGradient(
+                    colors = listOf(
+                        NothingObsidianBlack,
+                        Color(0xFF0A0B0F),
+                        Color(0xFF101319),
+                        Color(0xFF07080C),
+                        NothingObsidianBlack
+                    )
+                )
+                val nothingCrimsonOrb = Brush.radialGradient(
+                    colors = listOf(
+                        NothingCrimsonRed.copy(alpha = 0.25f),
+                        NothingBrightRed.copy(alpha = 0.08f),
+                        Color.Transparent
+                    ),
+                    center = Offset(w * 0.78f, h * 0.18f),
+                    radius = w * 0.70f
+                )
+                val nothingGlyphOrb = Brush.radialGradient(
+                    colors = listOf(
+                        NothingGlyphWhite.copy(alpha = 0.14f),
+                        Color(0xFF9EA4B0).copy(alpha = 0.05f),
+                        Color.Transparent
+                    ),
+                    center = Offset(w * 0.22f, h * 0.42f),
+                    radius = w * 0.65f
+                )
+                val nothingCyanRefractionOrb = Brush.radialGradient(
+                    colors = listOf(
+                        LiquidCyan.copy(alpha = 0.12f),
+                        NothingCrimsonRed.copy(alpha = 0.10f),
+                        Color.Transparent
+                    ),
+                    center = Offset(w * 0.52f, h * 0.76f),
+                    radius = w * 0.68f
+                )
 
                 val galacticBgBrush = Brush.verticalGradient(
                     colors = listOf(
@@ -200,9 +251,52 @@ fun LiquidAmbientBackground(
                 val starRBig = 2.0.dp.toPx()
                 val starRMed = 1.25.dp.toPx()
                 val starRSmall = 0.85.dp.toPx()
+                val dotGridStep = 24.dp.toPx()
+                val dotRadius = 1.15.dp.toPx()
+                val glyphStroke = Stroke(width = 1.4.dp.toPx(), cap = StrokeCap.Round)
 
                 onDrawBehind {
-                    if (glass.isGalacticCodex) {
+                    if (glass.isNothingOs) {
+                        drawRect(brush = nothingBgBrush)
+                        drawCircle(brush = nothingCrimsonOrb, radius = w * 0.70f, center = Offset(w * 0.78f, h * 0.18f))
+                        drawCircle(brush = nothingGlyphOrb, radius = w * 0.65f, center = Offset(w * 0.22f, h * 0.42f))
+                        drawCircle(brush = nothingCyanRefractionOrb, radius = w * 0.68f, center = Offset(w * 0.52f, h * 0.76f))
+
+                        // Cached Nothing OS Precision Dot-Matrix Grid Overlay (zero allocation in draw loop)
+                        val cols = (w / dotGridStep).toInt()
+                        val rows = (h / dotGridStep).toInt()
+                        for (r in 1..rows) {
+                            val py = r * dotGridStep
+                            for (c in 1..cols) {
+                                val px = c * dotGridStep
+                                val isAccentNode = (r + c) % 13 == 0
+                                drawCircle(
+                                    color = if (isAccentNode) {
+                                        NothingCrimsonRed.copy(alpha = 0.32f)
+                                    } else {
+                                        Color.White.copy(alpha = 0.085f)
+                                    },
+                                    radius = if (isAccentNode) dotRadius * 1.35f else dotRadius,
+                                    center = Offset(px, py)
+                                )
+                            }
+                        }
+
+                        // Subtle Nothing Phone Transparent Backplate Glyph Ring & Diagonal Telemetry Trace
+                        val ringCenter = Offset(w * 0.82f, h * 0.20f)
+                        val ringRadius = w * 0.28f
+                        drawCircle(
+                            color = Color.White.copy(alpha = 0.11f),
+                            radius = ringRadius,
+                            center = ringCenter,
+                            style = glyphStroke
+                        )
+                        drawCircle(
+                            color = NothingCrimsonRed.copy(alpha = 0.55f),
+                            radius = 4.dp.toPx(),
+                            center = Offset(ringCenter.x - ringRadius * 0.707f, ringCenter.y + ringRadius * 0.707f)
+                        )
+                    } else if (glass.isGalacticCodex) {
                         drawRect(brush = galacticBgBrush)
                         drawCircle(brush = galacticGoldOrb, radius = w * 0.72f, center = Offset(w * 0.75f, h * 0.22f))
                         drawCircle(brush = galacticTealOrb, radius = w * 0.68f, center = Offset(w * 0.28f, h * 0.36f))
@@ -249,46 +343,66 @@ fun LiquidGlassPanel(
     val glass = LocalGlassColors.current
     val shape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
 
-    val baseSurface = if (glass.isDark) {
-        Color(0xFF172242).copy(alpha = 0.68f)
-    } else {
-        Color.White.copy(alpha = 0.56f)
+    val baseSurface = when {
+        glass.isNothingOs -> Color(0xFF10131A).copy(alpha = 0.74f)
+        glass.isDark -> Color(0xFF172242).copy(alpha = 0.68f)
+        else -> Color.White.copy(alpha = 0.56f)
     }
 
-    val specularTop = if (glass.isDark) {
-        Color.White.copy(alpha = 0.22f)
-    } else {
-        Color.White.copy(alpha = 0.88f)
+    val specularTop = when {
+        glass.isNothingOs -> Color.White.copy(alpha = 0.30f)
+        glass.isDark -> Color.White.copy(alpha = 0.22f)
+        else -> Color.White.copy(alpha = 0.88f)
     }
 
-    val specularBottom = if (glass.isDark) {
-        tintColor.copy(alpha = 0.24f)
-    } else {
-        if (tintColor != Color.Transparent) tintColor.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.35f)
+    val specularBottom = when {
+        glass.isNothingOs -> (if (tintColor != Color.Transparent) tintColor else NothingCrimsonRed).copy(alpha = 0.22f)
+        glass.isDark -> tintColor.copy(alpha = 0.24f)
+        else -> if (tintColor != Color.Transparent) tintColor.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.35f)
     }
 
-    val borderBrush = remember(glass.isDark, tintColor, borderAlpha) {
-        Brush.linearGradient(
-            colors = listOf(
-                Color.White.copy(alpha = if (glass.isDark) 0.52f * borderAlpha else 0.95f * borderAlpha),
-                if (tintColor != Color.Transparent) tintColor.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.35f),
-                Color.White.copy(alpha = if (glass.isDark) 0.20f * borderAlpha else 0.65f * borderAlpha)
+    val borderBrush = remember(glass.isDark, glass.isNothingOs, tintColor, borderAlpha) {
+        if (glass.isNothingOs) {
+            Brush.linearGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = 0.76f * borderAlpha),
+                    NothingCrimsonRed.copy(alpha = 0.60f * borderAlpha),
+                    Color.White.copy(alpha = 0.28f * borderAlpha)
+                )
             )
-        )
+        } else {
+            Brush.linearGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = if (glass.isDark) 0.52f * borderAlpha else 0.95f * borderAlpha),
+                    if (tintColor != Color.Transparent) tintColor.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.35f),
+                    Color.White.copy(alpha = if (glass.isDark) 0.20f * borderAlpha else 0.65f * borderAlpha)
+                )
+            )
+        }
     }
 
-    val fillBrush = remember(glass.isDark, tintColor, baseSurface) {
-        Brush.linearGradient(
-            colors = listOf(
-                baseSurface,
-                if (tintColor != Color.Transparent) {
-                    tintColor.copy(alpha = if (glass.isDark) 0.24f else 0.22f)
-                } else {
-                    baseSurface
-                },
-                if (glass.isDark) Color(0xFF1E294E).copy(alpha = 0.62f) else Color.White.copy(alpha = 0.44f)
+    val fillBrush = remember(glass.isDark, glass.isNothingOs, tintColor, baseSurface) {
+        if (glass.isNothingOs) {
+            Brush.linearGradient(
+                colors = listOf(
+                    Color(0xFF171A23).copy(alpha = 0.78f),
+                    if (tintColor != Color.Transparent) tintColor.copy(alpha = 0.16f) else Color(0xFF11131A).copy(alpha = 0.76f),
+                    Color(0xFF0A0C10).copy(alpha = 0.82f)
+                )
             )
-        )
+        } else {
+            Brush.linearGradient(
+                colors = listOf(
+                    baseSurface,
+                    if (tintColor != Color.Transparent) {
+                        tintColor.copy(alpha = if (glass.isDark) 0.24f else 0.22f)
+                    } else {
+                        baseSurface
+                    },
+                    if (glass.isDark) Color(0xFF1E294E).copy(alpha = 0.62f) else Color.White.copy(alpha = 0.44f)
+                )
+            )
+        }
     }
 
     val interactionSource = remember { MutableInteractionSource() }
@@ -317,14 +431,24 @@ fun LiquidGlassPanel(
         Modifier
     }
 
+    val isNothingMode = glass.isNothingOs
+
     Box(
         modifier = modifier
             .then(clickableModifier)
             .shadow(
                 elevation = shadowElevation,
                 shape = shape,
-                ambientColor = if (tintColor != Color.Transparent) tintColor.copy(alpha = 0.35f) else ElectricBlue.copy(alpha = 0.18f),
-                spotColor = if (tintColor != Color.Transparent) tintColor.copy(alpha = 0.35f) else PrismViolet.copy(alpha = 0.22f)
+                ambientColor = when {
+                    isNothingMode -> NothingCrimsonRed.copy(alpha = 0.30f)
+                    tintColor != Color.Transparent -> tintColor.copy(alpha = 0.35f)
+                    else -> ElectricBlue.copy(alpha = 0.18f)
+                },
+                spotColor = when {
+                    isNothingMode -> Color.White.copy(alpha = 0.22f)
+                    tintColor != Color.Transparent -> tintColor.copy(alpha = 0.35f)
+                    else -> PrismViolet.copy(alpha = 0.22f)
+                }
             )
             .clip(shape)
             .background(brush = fillBrush, shape = shape)
@@ -333,15 +457,30 @@ fun LiquidGlassPanel(
                     colors = listOf(specularTop.copy(alpha = 0.32f), Color.Transparent, specularBottom.copy(alpha = 0.14f))
                 )
                 val cr = CornerRadius(cornerRadius.toPx(), cornerRadius.toPx())
+                val ledR = 2.4.dp.toPx()
+                val padEdge = 12.dp.toPx()
                 onDrawWithContent {
                     drawRoundRect(
                         brush = sheenBrush,
                         cornerRadius = cr
                     )
+                    if (isNothingMode && size.width > 90.dp.toPx() && size.height > 54.dp.toPx()) {
+                        // Signature Nothing OS corner telemetry dot-LED & subtle glyph hairline
+                        drawCircle(
+                            color = NothingCrimsonRed.copy(alpha = 0.72f),
+                            radius = ledR,
+                            center = Offset(size.width - padEdge, padEdge)
+                        )
+                        drawCircle(
+                            color = Color.White.copy(alpha = 0.38f),
+                            radius = ledR * 0.72f,
+                            center = Offset(size.width - padEdge - 8.dp.toPx(), padEdge)
+                        )
+                    }
                     drawContent()
                 }
             }
-            .border(width = 1.3.dp, brush = borderBrush, shape = shape),
+            .border(width = if (isNothingMode) 1.35.dp else 1.3.dp, brush = borderBrush, shape = shape),
         content = content
     )
 }
@@ -419,7 +558,7 @@ fun GlassCircularIconButton(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = resolvedTint,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(if (size <= 40.dp) 19.dp else 22.dp)
         )
     }
 }
@@ -433,8 +572,8 @@ fun FloatingGlassNavigationBar(
     scrollCompressionProgress: Float = 0f
 ) {
     val glass = LocalGlassColors.current
-    val outerCapsuleShape = RoundedCornerShape(38.dp)
-    val innerSelectionShape = RoundedCornerShape(30.dp)
+    val outerCapsuleShape = RoundedCornerShape(34.dp)
+    val innerSelectionShape = RoundedCornerShape(26.dp)
 
     val items = remember {
         listOf(
@@ -458,17 +597,20 @@ fun FloatingGlassNavigationBar(
     val refractionPhase = 0.45f
 
     val activeAccentColor by animateColorAsState(
-        targetValue = if (glass.isGalacticCodex) {
-            WarmGold
-        } else {
-            when (currentTab) {
+        targetValue = when {
+            glass.isNothingOs -> NothingCrimsonRed
+            glass.isGalacticCodex -> WarmGold
+            else -> when (currentTab) {
                 MainTab.HOME -> ElectricBlue
                 MainTab.TOOLS -> PrismViolet
                 MainTab.LIBRARY -> CrystalTeal
                 MainTab.SETTINGS -> IridescentPink
             }
         },
-        animationSpec = tween(durationMillis = 160),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
         label = "nav_active_accent"
     )
 
@@ -476,15 +618,15 @@ fun FloatingGlassNavigationBar(
         modifier = modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 18.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
         // Outer Ambient Light Halo & Soft Floating Shadow Separation beneath the Glass Pill
         Box(
             modifier = Modifier
-                .widthIn(max = 460.dp)
+                .widthIn(max = 420.dp)
                 .fillMaxWidth()
-                .height(74.dp)
+                .height(66.dp)
                 .drawBehind {
                     // Soft ambient shadow + subtle light halo around the floating glass
                     val activeCenterFraction = (animatedTabIndex + 0.5f) / 4f
@@ -511,6 +653,10 @@ fun FloatingGlassNavigationBar(
                 .background(
                     brush = Brush.verticalGradient(
                         colors = when {
+                            glass.isNothingOs -> listOf(
+                                Color(0xFF141720).copy(alpha = 0.84f),
+                                Color(0xFF07080B).copy(alpha = 0.90f)
+                            )
                             glass.isGalacticCodex -> listOf(
                                 Color(0xFF281F14).copy(alpha = 0.82f),
                                 Color(0xFF120E09).copy(alpha = 0.88f)
@@ -531,7 +677,24 @@ fun FloatingGlassNavigationBar(
                     val h = size.height
                     val activeCenterX = w * ((animatedTabIndex + 0.5f) / 4f)
 
-                    if (glass.isGalacticCodex) {
+                    if (glass.isNothingOs) {
+                        // Nothing OS Glyph LED light strip + precision dot-matrix ticks along the bottom dock
+                        val stepPx = 12.dp.toPx()
+                        val dotCols = (w / stepPx).toInt()
+                        for (c in 2 until dotCols - 1) {
+                            val dx = c * stepPx
+                            val prox = (1f - kotlin.math.abs(dx - activeCenterX) / (w * 0.25f)).coerceIn(0f, 1f)
+                            drawCircle(
+                                color = if (prox > 0.45f) {
+                                    NothingCrimsonRed.copy(alpha = 0.25f + 0.45f * prox)
+                                } else {
+                                    Color.White.copy(alpha = 0.08f)
+                                },
+                                radius = if (prox > 0.45f) 1.35.dp.toPx() else 0.95.dp.toPx(),
+                                center = Offset(dx, h * 0.14f)
+                            )
+                        }
+                    } else if (glass.isGalacticCodex) {
                         // Flowing Golden Light-Wave Ribbons across the capsule matching the Galactic Codex reference photo
                         for (ribbonIdx in 0..4) {
                             val ribbonPath = Path()
@@ -1002,40 +1165,40 @@ private data class NavTabSpec(
 @Composable
 fun PlayStoreOrganicBlobSpinner(
     modifier: Modifier = Modifier,
-    indicatorSize: Dp = 42.dp,
+    indicatorSize: Dp = 38.dp,
     blobColor: Color = Color(0xFF8EC5FF),
     lobes: Int = 10
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "play_store_blob_transition")
 
-    // Seamless infinite rotation (1050 ms per lobe-cycle / continuous 360° hardware-accelerated rotation)
+    // Seamless infinite rotation (1000 ms per cycle, right in the center of the 800–1200 ms spec)
     val rotationDegrees by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3200, easing = LinearEasing),
+            animation = tween(durationMillis = 2800, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "blob_rotation"
     )
 
-    // Subtle scale breathing / pulsing (960 ms per cycle, within the 800–1200 ms spec)
+    // Subtle scale breathing / pulsing (980 ms per cycle, within the 800–1200 ms spec)
     val scalePulse by infiniteTransition.animateFloat(
-        initialValue = 0.92f,
-        targetValue = 1.06f,
+        initialValue = 0.93f,
+        targetValue = 1.05f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 960, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = 980, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "blob_scale_pulse"
     )
 
-    // Subtle organic lobe depth morphing (1000 ms per cycle)
+    // Subtle organic lobe depth morphing (1040 ms per cycle, within the 800–1200 ms spec)
     val lobeMorph by infiniteTransition.animateFloat(
-        initialValue = 0.072f,
-        targetValue = 0.105f,
+        initialValue = 0.068f,
+        targetValue = 0.098f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = 1040, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "blob_lobe_morph"
@@ -1047,6 +1210,7 @@ fun PlayStoreOrganicBlobSpinner(
         modifier = modifier
             .size(indicatorSize)
             .graphicsLayer {
+                compositingStrategy = CompositingStrategy.Offscreen
                 rotationZ = rotationDegrees
                 scaleX = scalePulse
                 scaleY = scalePulse
@@ -1058,8 +1222,8 @@ fun PlayStoreOrganicBlobSpinner(
         val baseRadius = (minOf(size.width, size.height) / 2f) * 0.86f
         val amplitude = baseRadius * lobeMorph
 
-        // High-density polar sampling with smooth harmonic scallop for crisp AMOLED anti-aliasing
-        val steps = 180
+        // High-density 240-point polar sampling with smooth harmonic scallop for ultra-crisp AMOLED anti-aliasing
+        val steps = 240
         reusablePath.reset()
         for (i in 0 until steps) {
             val theta = (2.0 * PI * i) / steps
@@ -1082,8 +1246,9 @@ fun PlayStoreOrganicBlobSpinner(
 }
 
 /**
- * Full-screen dark Android / Play Store system loading overlay (#101010 background)
- * with smooth fade + scale exit transition when loading completes.
+ * Full-screen transparent Android / Play Store system loading overlay
+ * with smooth fade + scale exit transition when loading completes while keeping
+ * the underlying app UI, Android status bar, and system UI naturally visible.
  */
 @Composable
 fun PlayStoreSystemLoadingOverlay(
@@ -1092,18 +1257,22 @@ fun PlayStoreSystemLoadingOverlay(
 ) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(animationSpec = tween(durationMillis = 180)),
-        exit = fadeOut(animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing)) +
+        enter = fadeIn(animationSpec = tween(durationMillis = 180)) +
+            scaleIn(
+                initialScale = 0.88f,
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            ),
+        exit = fadeOut(animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing)) +
             scaleOut(
                 targetScale = 0.78f,
-                animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing)
+                animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing)
             ),
         modifier = modifier.fillMaxSize()
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF101010))
+                .background(Color.Transparent)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -1113,11 +1282,300 @@ fun PlayStoreSystemLoadingOverlay(
             contentAlignment = Alignment.Center
         ) {
             PlayStoreOrganicBlobSpinner(
-                indicatorSize = 42.dp,
+                indicatorSize = 38.dp,
                 blobColor = Color(0xFF8EC5FF),
                 lobes = 10
             )
         }
     }
 }
+
+/**
+ * 3D Refractive Liquid Glass Capsule Dropdown Menu matching Photo (2):
+ * - Sculpted 34.dp rounded capsule silhouette with curved optical dome sheen
+ * - Prismatic rainbow / cyan / gold / crimson chromatic aberration rim lighting
+ * - Ambient colour refraction orbs (crimson, violet-magenta, emerald-cyan) glowing through frosted dark glass
+ * - Subtle horizontal glass shelf dividers between items
+ */
+@Composable
+fun LiquidGlassDropdownMenu(
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    offset: DpOffset = DpOffset(0.dp, 6.dp),
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val capsuleRadius = 34.dp
+    val capsuleShape = remember { RoundedCornerShape(capsuleRadius) }
+
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+        offset = offset,
+        shape = capsuleShape,
+        containerColor = Color.Transparent,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+        modifier = modifier
+            .widthIn(min = 248.dp, max = 300.dp)
+            .padding(horizontal = 4.dp, vertical = 2.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(
+                    elevation = 28.dp,
+                    shape = capsuleShape,
+                    ambientColor = LiquidCyan.copy(alpha = 0.55f),
+                    spotColor = PrismPurple.copy(alpha = 0.65f)
+                )
+                .clip(capsuleShape)
+                .drawWithCache {
+                    val w = size.width
+                    val h = size.height
+                    val rPx = capsuleRadius.toPx()
+
+                    // Deep smoky translucent glass core
+                    val baseFillBrush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF3E3A44).copy(alpha = 0.92f),
+                            Color(0xFF28222C).copy(alpha = 0.90f),
+                            Color(0xFF211C27).copy(alpha = 0.91f),
+                            Color(0xFF1A1822).copy(alpha = 0.93f),
+                            Color(0xFF2B2A35).copy(alpha = 0.94f)
+                        )
+                    )
+
+                    // Top frosted silver-white curved dome reflection
+                    val topDomeBrush = Brush.radialGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.44f),
+                            Color(0xFFE2E8F0).copy(alpha = 0.18f),
+                            Color.Transparent
+                        ),
+                        center = Offset(w * 0.52f, h * 0.03f),
+                        radius = w * 0.88f
+                    )
+
+                    // Diagonal curved glass specular highlight across upper half
+                    val diagonalGlossPath = Path().apply {
+                        moveTo(0f, 0f)
+                        lineTo(w, 0f)
+                        lineTo(w, h * 0.36f)
+                        cubicTo(
+                            w * 0.68f, h * 0.24f,
+                            w * 0.32f, h * 0.16f,
+                            0f, h * 0.08f
+                        )
+                        close()
+                    }
+                    val diagonalGlossBrush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.28f),
+                            Color.White.copy(alpha = 0.09f),
+                            Color.Transparent
+                        ),
+                        start = Offset(w * 0.15f, 0f),
+                        end = Offset(w * 0.85f, h * 0.34f)
+                    )
+
+                    // Warm crimson-coral refraction bleed (upper-left / middle-left)
+                    val crimsonRefractionOrb = Brush.radialGradient(
+                        colors = listOf(
+                            NothingCrimsonRed.copy(alpha = 0.36f),
+                            Color(0xFFFB7185).copy(alpha = 0.14f),
+                            Color.Transparent
+                        ),
+                        center = Offset(w * 0.24f, h * 0.34f),
+                        radius = w * 0.68f
+                    )
+
+                    // Vibrant violet-magenta refraction bleed (lower-left / center)
+                    val violetRefractionOrb = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFFD946EF).copy(alpha = 0.34f),
+                            PrismPurple.copy(alpha = 0.22f),
+                            Color.Transparent
+                        ),
+                        center = Offset(w * 0.32f, h * 0.68f),
+                        radius = w * 0.66f
+                    )
+
+                    // Emerald-cyan refraction bleed (lower-right)
+                    val emeraldCyanRefractionOrb = Brush.radialGradient(
+                        colors = listOf(
+                            EmeraldGreen.copy(alpha = 0.34f),
+                            LiquidCyan.copy(alpha = 0.24f),
+                            Color.Transparent
+                        ),
+                        center = Offset(w * 0.78f, h * 0.66f),
+                        radius = w * 0.68f
+                    )
+
+                    // Bottom frosted silver-cyan upward reflection
+                    val bottomBounceBrush = Brush.radialGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.34f),
+                            LiquidCyan.copy(alpha = 0.18f),
+                            Color.Transparent
+                        ),
+                        center = Offset(w * 0.50f, h * 0.99f),
+                        radius = w * 0.80f
+                    )
+
+                    // Left & Right inner 3D glass thickness bevel highlights
+                    val sideBevelBrush = Brush.horizontalGradient(
+                        colorStops = arrayOf(
+                            0.00f to LiquidCyan.copy(alpha = 0.38f),
+                            0.04f to Color.White.copy(alpha = 0.16f),
+                            0.12f to Color.Transparent,
+                            0.88f to Color.Transparent,
+                            0.96f to Color.White.copy(alpha = 0.18f),
+                            1.00f to LiquidCyan.copy(alpha = 0.42f)
+                        )
+                    )
+
+                    // Outer chromatic aberration prismatic rim border (cyan + white + amber/gold + magenta + cyan)
+                    val prismaticOuterRimBrush = Brush.sweepGradient(
+                        colorStops = arrayOf(
+                            0.00f to LiquidCyan.copy(alpha = 0.95f),
+                            0.08f to WarmGold.copy(alpha = 0.85f),
+                            0.18f to LiquidCyan.copy(alpha = 0.95f),
+                            0.28f to Color.White.copy(alpha = 0.90f),
+                            0.42f to Color(0xFFF472B6).copy(alpha = 0.80f),
+                            0.55f to LiquidCyan.copy(alpha = 0.92f),
+                            0.72f to Color.White.copy(alpha = 0.96f),
+                            0.86f to LiquidCyan.copy(alpha = 0.92f),
+                            1.00f to LiquidCyan.copy(alpha = 0.95f)
+                        ),
+                        center = Offset(w * 0.5f, h * 0.5f)
+                    )
+
+                    // Inner crisp specular white rim border for double-walled glass depth
+                    val innerSpecularRimBrush = Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.00f to Color.White.copy(alpha = 0.88f),
+                            0.20f to Color.White.copy(alpha = 0.35f),
+                            0.50f to Color.White.copy(alpha = 0.22f),
+                            0.80f to Color.White.copy(alpha = 0.38f),
+                            1.00f to Color.White.copy(alpha = 0.85f)
+                        )
+                    )
+
+                    val outerStrokeWidth = 2.4.dp.toPx()
+                    val innerStrokeWidth = 1.15.dp.toPx()
+                    val innerInset = 3.2.dp.toPx()
+
+                    onDrawWithContent {
+                        // 1. Base smoky translucent glass body
+                        drawRoundRect(
+                            brush = baseFillBrush,
+                            cornerRadius = CornerRadius(rPx, rPx)
+                        )
+
+                        // 2. Internal chromatic refraction light pools
+                        drawRect(brush = crimsonRefractionOrb)
+                        drawRect(brush = violetRefractionOrb)
+                        drawRect(brush = emeraldCyanRefractionOrb)
+
+                        // 3. Top dome & bottom bounce reflections + side bevels
+                        drawRect(brush = sideBevelBrush)
+                        drawRect(brush = topDomeBrush)
+                        drawPath(path = diagonalGlossPath, brush = diagonalGlossBrush)
+                        drawRect(brush = bottomBounceBrush)
+
+                        // 4. Draw menu items and internal glass shelf dividers
+                        drawContent()
+
+                        // 5. Inner 3D glass wall highlight
+                        drawRoundRect(
+                            brush = innerSpecularRimBrush,
+                            topLeft = Offset(innerInset, innerInset),
+                            size = Size(w - innerInset * 2f, h - innerInset * 2f),
+                            cornerRadius = CornerRadius(
+                                (rPx - innerInset).coerceAtLeast(8f),
+                                (rPx - innerInset).coerceAtLeast(8f)
+                            ),
+                            style = Stroke(width = innerStrokeWidth)
+                        )
+
+                        // 6. Outer chromatic prismatic rim
+                        drawRoundRect(
+                            brush = prismaticOuterRimBrush,
+                            topLeft = Offset(outerStrokeWidth * 0.5f, outerStrokeWidth * 0.5f),
+                            size = Size(w - outerStrokeWidth, h - outerStrokeWidth),
+                            cornerRadius = CornerRadius(rPx, rPx),
+                            style = Stroke(width = outerStrokeWidth)
+                        )
+                    }
+                }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .width(IntrinsicSize.Max)
+                    .padding(vertical = 8.dp),
+                content = content
+            )
+        }
+    }
+}
+
+/**
+ * Individual row inside [LiquidGlassDropdownMenu] with bold clean sans-serif typography
+ * and a subtle refractive glass shelf divider line along the bottom when [showDivider] is true.
+ */
+@Composable
+fun LiquidGlassDropdownMenuItem(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    textColor: Color = Color.White,
+    leadingIcon: (@Composable () -> Unit)? = null,
+    showDivider: Boolean = true
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        DropdownMenuItem(
+            text = {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = FontFamily.SansSerif,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.5.sp,
+                        letterSpacing = 0.1.sp
+                    ),
+                    color = textColor
+                )
+            },
+            leadingIcon = leadingIcon,
+            onClick = onClick,
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 11.dp),
+            colors = MenuDefaults.itemColors(
+                textColor = textColor,
+                leadingIconColor = textColor
+            )
+        )
+        if (showDivider) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp)
+                    .height(1.5.dp)
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colorStops = arrayOf(
+                                0.00f to Color.White.copy(alpha = 0.04f),
+                                0.15f to Color.White.copy(alpha = 0.18f),
+                                0.50f to Color.White.copy(alpha = 0.24f),
+                                0.85f to Color.White.copy(alpha = 0.18f),
+                                1.00f to Color.White.copy(alpha = 0.04f)
+                            )
+                        )
+                    )
+            )
+        }
+    }
+}
+
 

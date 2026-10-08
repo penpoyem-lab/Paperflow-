@@ -84,6 +84,19 @@ interface GlassPaperDao {
     @Query("DELETE FROM annotations WHERE documentId = :docId AND pageIndex = :pageIndex")
     suspend fun clearAnnotationsOnPage(docId: Long, pageIndex: Int)
 
+    // AI Chat Messages
+    @Query("SELECT * FROM ai_chat_messages ORDER BY timestamp ASC")
+    fun getAllAiChatMessages(): Flow<List<AiChatMessageEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAiChatMessage(message: AiChatMessageEntity): Long
+
+    @Query("DELETE FROM ai_chat_messages WHERE id = :id")
+    suspend fun deleteAiChatMessageById(id: Long)
+
+    @Query("DELETE FROM ai_chat_messages")
+    suspend fun clearAllAiChatMessages()
+
     // Danger Zone / History
     @Query("DELETE FROM pdf_documents")
     suspend fun clearAllDocuments()
@@ -103,9 +116,10 @@ interface GlassPaperDao {
         PdfDocumentEntity::class,
         NoteEntity::class,
         BookmarkEntity::class,
-        AnnotationEntity::class
+        AnnotationEntity::class,
+        AiChatMessageEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class GlassPaperDatabase : RoomDatabase() {

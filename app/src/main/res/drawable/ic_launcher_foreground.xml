@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/img_paperflow_icon_1791395720407"
+        android:drawable="@drawable/paperflow_red_black_icon_1791443745243"
         android:gravity="center" />
 </layer-list>

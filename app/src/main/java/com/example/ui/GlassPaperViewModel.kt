@@ -4,13 +4,19 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.ai.PaperflowAiContext
+import com.example.ai.PaperflowAiService
 import com.example.auth.AuthSessionState
 import com.example.auth.PaperflowAuthManager
+import com.example.data.AiButtonSizeOption
+import com.example.data.AiChatMessageEntity
 import com.example.data.AnnotationEntity
 import com.example.data.AppSettings
+import com.example.data.AppStyleOption
 import com.example.data.AppThemeOption
 import com.example.data.BookmarkEntity
 import com.example.data.GlassPaperRepository
@@ -22,7 +28,11 @@ import com.example.data.SettingsDataStore
 import com.example.data.StreakCheckInEvent
 import com.example.data.StreakData
 import com.example.data.TextSizeOption
+import com.example.data.ThemeModeOption
+import com.example.pdf.CompressionLevel
 import com.example.pdf.MergeFileEntry
+import com.example.pdf.PageNumbersConfig
+import com.example.pdf.PdfDetailedMetadata
 import com.example.pdf.PdfEngine
 import com.example.pdf.SignatureStampConfig
 import com.example.pdf.WatermarkConfig
@@ -33,6 +43,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.Locale
 
 enum class MainTab { HOME, TOOLS, LIBRARY, SETTINGS }
 
@@ -60,6 +71,7 @@ sealed class ActiveOverlay {
     data object StreakDetails : ActiveOverlay()
     data object Authentication : ActiveOverlay()
     data object GitHubRepository : ActiveOverlay()
+    data object ThemePage : ActiveOverlay()
     data class ToolWorkspace(val toolId: String) : ActiveOverlay()
 }
 
@@ -95,6 +107,23 @@ class GlassPaperViewModel(
 
     val bookmarks: StateFlow<List<BookmarkEntity>> = repository.allBookmarks
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val aiChatMessages: StateFlow<List<AiChatMessageEntity>> = repository.allAiChatMessages
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _isAiChatPanelOpen = MutableStateFlow(false)
+    val isAiChatPanelOpen: StateFlow<Boolean> = _isAiChatPanelOpen.asStateFlow()
+
+    private val _isAiChatMaximized = MutableStateFlow(false)
+    val isAiChatMaximized: StateFlow<Boolean> = _isAiChatMaximized.asStateFlow()
+
+    private val _isAiThinking = MutableStateFlow(false)
+    val isAiThinking: StateFlow<Boolean> = _isAiThinking.asStateFlow()
+
+    private val _activeReaderPageIndex = MutableStateFlow(0)
+    val activeReaderPageIndex: StateFlow<Int> = _activeReaderPageIndex.asStateFlow()
+
+    private var activeAiGenerationJob: kotlinx.coroutines.Job? = null
 
     val settings: StateFlow<AppSettings> = settingsDataStore.settingsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppSettings())
@@ -135,14 +164,38 @@ class GlassPaperViewModel(
     private val _isAppStartingLoading = MutableStateFlow(true)
     val isAppStartingLoading: StateFlow<Boolean> = _isAppStartingLoading.asStateFlow()
 
+    private val _isPageRefreshing = MutableStateFlow(false)
+    val isPageRefreshing: StateFlow<Boolean> = _isPageRefreshing.asStateFlow()
+
     init {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val startMs = System.currentTimeMillis()
             repository.removeLegacyDemoFilesIfPresent()
             val checkIn = settingsDataStore.registerDailyCheckInIfNeeded()
+            val elapsed = System.currentTimeMillis() - startMs
+            if (elapsed < 950L) {
+                kotlinx.coroutines.delay(950L - elapsed)
+            }
             _isAppStartingLoading.value = false
             if (checkIn != null) {
                 _streakCelebrationEvent.value = checkIn
             }
+        }
+    }
+
+    /**
+     * Triggers a full-screen Android/Play Store style (#101010) refresh & content reload
+     * with the smooth light-blue (#8EC5FF) 10-lobed organic spinner.
+     */
+    fun refreshAppPage() {
+        if (_isPageRefreshing.value) return
+        viewModelScope.launch {
+            _isPageRefreshing.value = true
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                repository.removeLegacyDemoFilesIfPresent()
+            }
+            kotlinx.coroutines.delay(980L)
+            _isPageRefreshing.value = false
         }
     }
 
@@ -163,6 +216,11 @@ class GlassPaperViewModel(
     fun openGitHubRepository() {
         _streakCelebrationEvent.value = null
         _activeOverlay.value = ActiveOverlay.GitHubRepository
+    }
+
+    fun openThemePage() {
+        _streakCelebrationEvent.value = null
+        _activeOverlay.value = ActiveOverlay.ThemePage
     }
 
     fun signOut() {
@@ -188,6 +246,8 @@ class GlassPaperViewModel(
 
     fun openPdfReader(docId: Long, initialPage: Int = -1) {
         _importPreview.value = null
+        val doc = documents.value.firstOrNull { it.id == docId }
+        _activeReaderPageIndex.value = if (initialPage >= 0) initialPage else (doc?.lastReadPage ?: 0)
         _activeOverlay.value = ActiveOverlay.PdfReader(docId, initialPage)
     }
 
@@ -257,6 +317,7 @@ class GlassPaperViewModel(
     }
 
     fun updateReadingProgress(docId: Long, pageIndex: Int) {
+        _activeReaderPageIndex.value = pageIndex
         viewModelScope.launch {
             if (settings.value.rememberReadingPosition) {
                 repository.updateReadingPosition(docId, pageIndex)
@@ -306,7 +367,7 @@ class GlassPaperViewModel(
     fun shareDocument(context: Context, doc: PdfDocumentEntity) {
         try {
             val uri = if (doc.filePath.startsWith("content://") || doc.filePath.startsWith("file://")) {
-                Uri.parse(doc.filePath)
+                doc.filePath.toUri()
             } else {
                 val file = File(doc.filePath)
                 if (!file.exists()) {
@@ -480,7 +541,8 @@ class GlassPaperViewModel(
         doc: PdfDocumentEntity,
         selectedZeroBasedPages: List<Int>,
         operationLabel: String,
-        customOutputFilename: String = ""
+        customOutputFilename: String = "",
+        perSlotRotations: Map<Int, Int> = emptyMap()
     ) {
         if (selectedZeroBasedPages.isEmpty()) {
             _toolState.value = ToolOperationState(errorMessage = "Select at least 1 page to continue.")
@@ -494,7 +556,8 @@ class GlassPaperViewModel(
                 doc.title,
                 selectedZeroBasedPages,
                 operationLabel,
-                customOutputFilename
+                customOutputFilename,
+                perSlotRotations
             )
             if (outFile != null) {
                 val origPages = doc.searchableText.split("||PAGE||")
@@ -516,10 +579,15 @@ class GlassPaperViewModel(
         }
     }
 
-    fun executeRotatePdf(doc: PdfDocumentEntity, degrees: Int, customOutputFilename: String = "") {
+    fun executeRotatePdf(
+        doc: PdfDocumentEntity,
+        degrees: Int,
+        customOutputFilename: String = "",
+        perPageRotations: Map<Int, Int> = emptyMap()
+    ) {
         viewModelScope.launch {
             _toolState.value = ToolOperationState(isRunning = true, progressText = "Rotating pages by $degrees°...")
-            val outFile = PdfEngine.rotatePdf(appContext, doc.filePath, doc.title, degrees, customOutputFilename)
+            val outFile = PdfEngine.rotatePdf(appContext, doc.filePath, doc.title, degrees, customOutputFilename, perPageRotations)
             if (outFile != null) {
                 val finalTitle = customOutputFilename.ifBlank {
                     "${doc.title.removeSuffix(".pdf")}-rotated-$degrees.pdf"
@@ -605,10 +673,10 @@ class GlassPaperViewModel(
             return
         }
         viewModelScope.launch {
-            _toolState.value = ToolOperationState(isRunning = true, progressText = "Encrypting & locking PDF...")
+            _toolState.value = ToolOperationState(isRunning = true, progressText = "Encrypting & locking PDF (AES-256)...")
             val hash = PdfEngine.hashDocumentPassword(newPassword)
             val cleanName = outputFilename.ifBlank { "${doc.title.removeSuffix(".pdf")}-protected" }
-            val outFile = PdfEngine.protectOrUnlockPdfCopy(appContext, doc.filePath, doc.title, cleanName)
+            val outFile = PdfEngine.encryptPdfStandard(appContext, doc.filePath, doc.title, newPassword, cleanName)
             if (outFile != null) {
                 val newDoc = repository.registerGeneratedPdfFile(
                     file = outFile,
@@ -643,7 +711,7 @@ class GlassPaperViewModel(
         viewModelScope.launch {
             _toolState.value = ToolOperationState(isRunning = true, progressText = "Removing password protection...")
             val cleanName = outputFilename.ifBlank { "${doc.title.removeSuffix(".pdf")}-unlocked" }
-            val outFile = PdfEngine.protectOrUnlockPdfCopy(appContext, doc.filePath, doc.title, cleanName)
+            val outFile = PdfEngine.decryptPdfStandard(appContext, doc.filePath, doc.title, passwordInput, cleanName)
             if (outFile != null) {
                 val newDoc = repository.registerGeneratedPdfFile(
                     file = outFile,
@@ -656,6 +724,108 @@ class GlassPaperViewModel(
                 _toolState.value = ToolOperationState(isRunning = false, resultDocument = newDoc)
             } else {
                 _toolState.value = ToolOperationState(isRunning = false, errorMessage = "Failed to unlock PDF.")
+            }
+        }
+    }
+
+    fun executePageNumbers(
+        doc: PdfDocumentEntity,
+        config: PageNumbersConfig
+    ) {
+        viewModelScope.launch {
+            _toolState.value = ToolOperationState(isRunning = true, progressText = "Stamping vector page numbers (${config.position})...")
+            val outFile = PdfEngine.addPageNumbersVector(appContext, doc.filePath, doc.title, config)
+            if (outFile != null) {
+                val finalTitle = config.outputFilename.ifBlank {
+                    "${doc.title.removeSuffix(".pdf")}-numbered.pdf"
+                }
+                val newDoc = repository.registerGeneratedPdfFile(
+                    file = outFile,
+                    title = finalTitle,
+                    categoryTag = "Numbered",
+                    accentHex = 0xFF14B8A6,
+                    searchableText = doc.searchableText
+                )
+                _toolState.value = ToolOperationState(isRunning = false, resultDocument = newDoc)
+            } else {
+                _toolState.value = ToolOperationState(isRunning = false, errorMessage = "Failed to add page numbers.")
+            }
+        }
+    }
+
+    fun executeCompressPdf(
+        doc: PdfDocumentEntity,
+        level: CompressionLevel,
+        customOutputFilename: String = ""
+    ) {
+        viewModelScope.launch {
+            _toolState.value = ToolOperationState(isRunning = true, progressText = "Compressing PDF (${level.label} mode)...")
+            val outFile = PdfEngine.compressPdfWithLevel(appContext, doc.filePath, doc.title, level, customOutputFilename)
+            if (outFile != null) {
+                val finalTitle = customOutputFilename.ifBlank {
+                    "${doc.title.removeSuffix(".pdf")}-compressed.pdf"
+                }
+                val newDoc = repository.registerGeneratedPdfFile(
+                    file = outFile,
+                    title = finalTitle,
+                    categoryTag = "Compressed",
+                    accentHex = 0xFFF59E0B,
+                    searchableText = doc.searchableText
+                )
+                _toolState.value = ToolOperationState(isRunning = false, resultDocument = newDoc)
+            } else {
+                _toolState.value = ToolOperationState(isRunning = false, errorMessage = "Failed to compress PDF.")
+            }
+        }
+    }
+
+    fun executeRepairPdf(
+        doc: PdfDocumentEntity,
+        customOutputFilename: String = ""
+    ) {
+        viewModelScope.launch {
+            _toolState.value = ToolOperationState(isRunning = true, progressText = "Rebuilding PDF cross-reference streams...")
+            val outFile = PdfEngine.repairPdfDocument(appContext, doc.filePath, doc.title, customOutputFilename)
+            if (outFile != null) {
+                val finalTitle = customOutputFilename.ifBlank {
+                    "${doc.title.removeSuffix(".pdf")}-repaired.pdf"
+                }
+                val newDoc = repository.registerGeneratedPdfFile(
+                    file = outFile,
+                    title = finalTitle,
+                    categoryTag = "Repaired",
+                    accentHex = 0xFFF97316,
+                    searchableText = doc.searchableText
+                )
+                _toolState.value = ToolOperationState(isRunning = false, resultDocument = newDoc)
+            } else {
+                _toolState.value = ToolOperationState(isRunning = false, errorMessage = "Failed to repair PDF.")
+            }
+        }
+    }
+
+    fun executeUpdateMetadata(
+        doc: PdfDocumentEntity,
+        metadata: PdfDetailedMetadata,
+        customOutputFilename: String = ""
+    ) {
+        viewModelScope.launch {
+            _toolState.value = ToolOperationState(isRunning = true, progressText = "Updating PDF XMP & Info metadata...")
+            val outFile = PdfEngine.updatePdfMetadata(appContext, doc.filePath, doc.title, metadata, customOutputFilename)
+            if (outFile != null) {
+                val finalTitle = customOutputFilename.ifBlank {
+                    "${doc.title.removeSuffix(".pdf")}-metadata.pdf"
+                }
+                val newDoc = repository.registerGeneratedPdfFile(
+                    file = outFile,
+                    title = finalTitle,
+                    categoryTag = "Metadata",
+                    accentHex = 0xFF22D3EE,
+                    searchableText = doc.searchableText
+                )
+                _toolState.value = ToolOperationState(isRunning = false, resultDocument = newDoc)
+            } else {
+                _toolState.value = ToolOperationState(isRunning = false, errorMessage = "Failed to update PDF metadata.")
             }
         }
     }
@@ -758,10 +928,17 @@ class GlassPaperViewModel(
         }
     }
 
-    fun executePdfToImages(doc: PdfDocumentEntity) {
+    fun executePdfToImages(doc: PdfDocumentEntity, extractEmbeddedOnly: Boolean = false) {
         viewModelScope.launch {
-            _toolState.value = ToolOperationState(isRunning = true, progressText = "Rendering high-res PNG pages...")
-            val files = PdfEngine.exportPagesAsPngs(appContext, doc.filePath, doc.title)
+            _toolState.value = ToolOperationState(
+                isRunning = true,
+                progressText = if (extractEmbeddedOnly) "Extracting embedded images & high-res plates..." else "Rendering high-res PNG pages..."
+            )
+            val files = if (extractEmbeddedOnly) {
+                PdfEngine.extractEmbeddedImagesOrPages(appContext, doc.filePath, doc.title)
+            } else {
+                PdfEngine.exportPagesAsPngs(appContext, doc.filePath, doc.title)
+            }
             if (files.isNotEmpty()) {
                 _toolState.value = ToolOperationState(isRunning = false, resultImagesCount = files.size)
             } else {
@@ -772,13 +949,23 @@ class GlassPaperViewModel(
 
     fun executePdfToText(doc: PdfDocumentEntity) {
         viewModelScope.launch {
-            _toolState.value = ToolOperationState(isRunning = true, progressText = "Extracting document text...")
-            val text = if (doc.searchableText.isNotBlank()) {
-                doc.searchableText.split("||PAGE||")
-                    .mapIndexed { idx, pageTxt -> "--- PAGE ${idx + 1} ---\n$pageTxt" }
-                    .joinToString("\n\n")
-            } else {
-                "This document may contain scanned pages.\n\nFile: ${doc.title}\nPages: ${doc.pageCount}\nSize: ${formatFileSize(doc.fileSizeBytes)}"
+            _toolState.value = ToolOperationState(isRunning = true, progressText = "Extracting document text via PDFBox...")
+            val realPages = PdfEngine.extractRealTextFromPdf(appContext, doc.filePath)
+            val nonBlankReal = realPages.filter { it.isNotBlank() }
+            val text = when {
+                nonBlankReal.isNotEmpty() -> {
+                    realPages.mapIndexedNotNull { idx, pageTxt ->
+                        if (pageTxt.isBlank()) null else "--- PAGE ${idx + 1} ---\n$pageTxt"
+                    }.joinToString("\n\n")
+                }
+                doc.searchableText.isNotBlank() -> {
+                    doc.searchableText.split("||PAGE||")
+                        .mapIndexed { idx, pageTxt -> "--- PAGE ${idx + 1} ---\n$pageTxt" }
+                        .joinToString("\n\n")
+                }
+                else -> {
+                    "No selectable vector text streams were found (this PDF appears to contain scanned images).\n\nFile: ${doc.title}\nPages: ${doc.pageCount}\nSize: ${formatFileSize(doc.fileSizeBytes)}"
+                }
             }
             _toolState.value = ToolOperationState(isRunning = false, extractedText = text)
         }
@@ -787,6 +974,12 @@ class GlassPaperViewModel(
     // ==================== SETTINGS ACTIONS ====================
 
     fun setAppTheme(option: AppThemeOption) = viewModelScope.launch { settingsDataStore.setAppTheme(option) }
+    fun setAppStyle(style: AppStyleOption) = viewModelScope.launch { settingsDataStore.setAppStyle(style) }
+    fun setThemeMode(mode: ThemeModeOption) = viewModelScope.launch { settingsDataStore.setThemeMode(mode) }
+    fun resetThemeToDefaults() = viewModelScope.launch {
+        settingsDataStore.resetThemeToDefaults()
+        _snackbarMessage.value = "Theme reset to Nothing UI • System"
+    }
     fun setReaderTheme(option: ReaderThemeOption) = viewModelScope.launch { settingsDataStore.setReaderTheme(option) }
     fun setTextSize(option: TextSizeOption) = viewModelScope.launch { settingsDataStore.setTextSize(option) }
     fun setPageLayout(option: PageLayoutOption) = viewModelScope.launch { settingsDataStore.setPageLayout(option) }
@@ -796,6 +989,184 @@ class GlassPaperViewModel(
     fun setHapticFeedback(enabled: Boolean) = viewModelScope.launch { settingsDataStore.setHapticFeedback(enabled) }
     fun setDefaultDownloadLocation(loc: String) = viewModelScope.launch { settingsDataStore.setDefaultDownloadLocation(loc) }
     fun setLibraryGridView(isGrid: Boolean) = viewModelScope.launch { settingsDataStore.setLibraryGridView(isGrid) }
+    fun setAiAssistantEnabled(enabled: Boolean) = viewModelScope.launch {
+        settingsDataStore.setAiAssistantEnabled(enabled)
+        if (!enabled) _isAiChatPanelOpen.value = false
+    }
+    fun setAiHideWhileReadingPdf(hide: Boolean) = viewModelScope.launch { settingsDataStore.setAiHideWhileReadingPdf(hide) }
+    fun setAiButtonSize(size: AiButtonSizeOption) = viewModelScope.launch { settingsDataStore.setAiButtonSize(size) }
+    fun setAiButtonOpacity(opacity: Float) = viewModelScope.launch { settingsDataStore.setAiButtonOpacity(opacity) }
+    fun setAiButtonPosition(normX: Float, normY: Float) = viewModelScope.launch {
+        settingsDataStore.setAiButtonPosition(normX, normY)
+    }
+    fun resetAiButtonPosition() = viewModelScope.launch {
+        settingsDataStore.resetAiButtonPosition()
+        _snackbarMessage.value = "Floating AI button position reset"
+    }
+
+    // ==================== FLOATING AI CHATBOT ACTIONS ====================
+
+    fun openAiChatPanel() {
+        _isAiChatPanelOpen.value = true
+    }
+
+    fun closeAiChatPanel() {
+        _isAiChatPanelOpen.value = false
+    }
+
+    fun toggleAiChatPanel() {
+        _isAiChatPanelOpen.value = !_isAiChatPanelOpen.value
+    }
+
+    fun toggleAiChatMaximized() {
+        _isAiChatMaximized.value = !_isAiChatMaximized.value
+    }
+
+    private fun buildCurrentAiContext(): PaperflowAiContext {
+        val overlay = _activeOverlay.value
+        val activeDoc = when (overlay) {
+            is ActiveOverlay.PdfReader -> documents.value.firstOrNull { it.id == overlay.documentId }
+            is ActiveOverlay.NoteEditor -> overlay.attachedDocId?.let { id -> documents.value.firstOrNull { it.id == id } }
+            else -> null
+        }
+        val activeNote = when (overlay) {
+            is ActiveOverlay.NoteEditor -> overlay.noteId?.let { id -> notes.value.firstOrNull { it.id == id } }
+            else -> null
+        }
+        val pageIdx = when (overlay) {
+            is ActiveOverlay.PdfReader -> _activeReaderPageIndex.value
+            is ActiveOverlay.NoteEditor -> ((overlay.attachedPage ?: 1) - 1).coerceAtLeast(0)
+            else -> 0
+        }
+        val docsList = documents.value
+        val notesList = notes.value
+        return PaperflowAiContext(
+            activeDocument = activeDoc,
+            activePageIndex = pageIdx,
+            activeNote = activeNote,
+            allDocumentsCount = docsList.size,
+            allNotesCount = notesList.size,
+            allDocumentsSummary = docsList.take(5).joinToString(", ") { "${it.title} (${it.pageCount}p)" },
+            allNotesSummary = notesList.take(5).joinToString(", ") { it.title }
+        )
+    }
+
+    fun sendAiChatMessage(promptText: String) {
+        val clean = promptText.trim()
+        if (clean.isBlank() || _isAiThinking.value) return
+
+        val aiCtx = buildCurrentAiContext()
+        val contextBadge = when {
+            aiCtx.activeDocument != null -> "${aiCtx.activeDocument.title} • Page ${aiCtx.activePageIndex + 1}"
+            aiCtx.activeNote != null -> "Note: ${aiCtx.activeNote.title}"
+            else -> "Paperflow Workspace"
+        }
+
+        activeAiGenerationJob?.cancel()
+        activeAiGenerationJob = viewModelScope.launch {
+            val currentHistory = aiChatMessages.value
+            repository.insertAiChatMessage(
+                AiChatMessageEntity(
+                    role = "user",
+                    content = clean,
+                    contextBadge = contextBadge
+                )
+            )
+            _isAiThinking.value = true
+            try {
+                val reply = PaperflowAiService.generateAssistantReply(
+                    context = appContext,
+                    userPrompt = clean,
+                    history = currentHistory,
+                    aiContext = aiCtx
+                )
+                repository.insertAiChatMessage(
+                    AiChatMessageEntity(
+                        role = "assistant",
+                        content = reply.text,
+                        contextBadge = reply.contextBadge,
+                        isError = reply.isError
+                    )
+                )
+            } catch (e: Exception) {
+                repository.insertAiChatMessage(
+                    AiChatMessageEntity(
+                        role = "assistant",
+                        content = "Unable to complete request: ${e.localizedMessage ?: "Unknown error"}",
+                        contextBadge = contextBadge,
+                        isError = true
+                    )
+                )
+            } finally {
+                _isAiThinking.value = false
+            }
+        }
+    }
+
+    fun regenerateLastAiResponse() {
+        if (_isAiThinking.value) return
+        val history = aiChatMessages.value
+        val lastUserMessage = history.lastOrNull { it.role == "user" } ?: return
+        val lastMessage = history.lastOrNull()
+
+        viewModelScope.launch {
+            if (lastMessage != null && lastMessage.role == "assistant") {
+                repository.deleteAiChatMessage(lastMessage.id)
+            }
+            val aiCtx = buildCurrentAiContext()
+            _isAiThinking.value = true
+            try {
+                val reply = PaperflowAiService.generateAssistantReply(
+                    context = appContext,
+                    userPrompt = lastUserMessage.content,
+                    history = aiChatMessages.value.dropLast(1),
+                    aiContext = aiCtx
+                )
+                repository.insertAiChatMessage(
+                    AiChatMessageEntity(
+                        role = "assistant",
+                        content = reply.text,
+                        contextBadge = reply.contextBadge,
+                        isError = reply.isError
+                    )
+                )
+            } finally {
+                _isAiThinking.value = false
+            }
+        }
+    }
+
+    fun clearAiChatConversation() {
+        activeAiGenerationJob?.cancel()
+        _isAiThinking.value = false
+        viewModelScope.launch {
+            repository.clearAiChatHistory()
+            _snackbarMessage.value = "AI conversation cleared"
+        }
+    }
+
+    fun saveAiResponseToNote(messageContent: String, contextBadge: String) {
+        val aiCtx = buildCurrentAiContext()
+        val noteTitle = when {
+            aiCtx.activeDocument != null -> "AI Insights — ${aiCtx.activeDocument.title.removeSuffix(".pdf")} (P.${aiCtx.activePageIndex + 1})"
+            contextBadge.isNotBlank() && contextBadge != "Paperflow Workspace" -> "AI Note — $contextBadge"
+            else -> "Paperflow AI Study Note"
+        }
+        viewModelScope.launch {
+            repository.saveNote(
+                NoteEntity(
+                    title = noteTitle,
+                    content = messageContent,
+                    attachedDocumentId = aiCtx.activeDocument?.id,
+                    attachedDocumentTitle = aiCtx.activeDocument?.title,
+                    attachedPageNumber = if (aiCtx.activeDocument != null) aiCtx.activePageIndex + 1 else null,
+                    accentColorHex = 0xFF22D3EE,
+                    isFavorite = true
+                )
+            )
+            _snackbarMessage.value = "Saved AI response to Study Notes"
+        }
+    }
 
     fun clearRecentHistory() {
         viewModelScope.launch {
@@ -816,9 +1187,9 @@ class GlassPaperViewModel(
             if (bytes <= 0) return "0 KB"
             val kb = bytes / 1024.0
             return if (kb < 1024.0) {
-                String.format("%.1f KB", kb)
+                String.format(Locale.US, "%.1f KB", kb)
             } else {
-                String.format("%.1f MB", kb / 1024.0)
+                String.format(Locale.US, "%.1f MB", kb / 1024.0)
             }
         }
 

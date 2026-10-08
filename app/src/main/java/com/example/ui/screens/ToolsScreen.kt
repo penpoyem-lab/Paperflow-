@@ -44,16 +44,18 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.BrandingWatermark
+import androidx.compose.material.icons.automirrored.filled.CallMerge
+import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.RotateRight
+import androidx.compose.material.icons.automirrored.filled.TextSnippet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.BrandingWatermark
-import androidx.compose.material.icons.filled.CallMerge
-import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -75,10 +77,8 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Reorder
-import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.filled.TextSnippet
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -98,6 +98,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -137,7 +138,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.PdfDocumentEntity
+import com.example.pdf.CompressionLevel
 import com.example.pdf.MergeFileEntry
+import com.example.pdf.PageNumbersConfig
+import com.example.pdf.PdfDetailedMetadata
 import com.example.pdf.PdfEngine
 import com.example.pdf.SignatureStampConfig
 import com.example.pdf.WatermarkConfig
@@ -170,13 +174,13 @@ data class PdfToolSpec(
 
 val ALL_PDF_TOOLS: List<PdfToolSpec> = listOf(
     // EDIT (Pink / Magenta / Violet / Cyan accents)
-    PdfToolSpec("merge", "EDIT", "Merge PDF", "Combine & reorder multiple PDFs into one document", Icons.Filled.CallMerge, IridescentPink),
-    PdfToolSpec("split", "EDIT", "Split PDF", "Select visual pages or ranges to extract into a new PDF", Icons.Filled.CallSplit, LiquidMagenta),
+    PdfToolSpec("merge", "EDIT", "Merge PDF", "Combine & reorder multiple PDFs into one document", Icons.AutoMirrored.Filled.CallMerge, IridescentPink),
+    PdfToolSpec("split", "EDIT", "Split PDF", "Select visual pages or ranges to extract into a new PDF", Icons.AutoMirrored.Filled.CallSplit, LiquidMagenta),
     PdfToolSpec("rearrange", "EDIT", "Rearrange PDF", "Hold, drag & reorder visual page thumbnails", Icons.Filled.Reorder, IridescentPink),
-    PdfToolSpec("rotate", "EDIT", "Rotate PDF", "Rotate all pages 90°, 180°, or 270° with preview", Icons.Filled.RotateRight, Color(0xFFF43F5E)),
+    PdfToolSpec("rotate", "EDIT", "Rotate PDF", "Rotate all pages 90°, 180°, or 270° with preview", Icons.AutoMirrored.Filled.RotateRight, Color(0xFFF43F5E)),
     PdfToolSpec("delete_pages", "EDIT", "Delete Pages", "Select unwanted pages to remove from a PDF", Icons.Filled.DeleteSweep, LiquidMagenta),
     PdfToolSpec("extract_pages", "EDIT", "Extract Pages", "Save selected visual pages as a standalone PDF", Icons.Filled.ContentCut, Color(0xFFE11D48)),
-    PdfToolSpec("watermark", "EDIT", "Watermark", "Live preview diagonal watermark with color, opacity, size & angle", Icons.Filled.BrandingWatermark, PrismPurple),
+    PdfToolSpec("watermark", "EDIT", "Watermark", "Live preview diagonal watermark with color, opacity, size & angle", Icons.AutoMirrored.Filled.BrandingWatermark, PrismPurple),
     PdfToolSpec("signature", "EDIT", "Signature", "Draw or upload signature and place on any PDF page", Icons.Filled.Draw, LiquidMagenta),
     PdfToolSpec("page_numbers", "EDIT", "Page Numbers", "Stamp clean page numbers across all pages", Icons.Filled.FormatListNumbered, IridescentPink),
 
@@ -194,7 +198,7 @@ val ALL_PDF_TOOLS: List<PdfToolSpec> = listOf(
     PdfToolSpec("pdf_to_image", "CONVERT", "PDF to Image", "Export PDF pages as high-res PNG images", Icons.Filled.Image, CrystalTeal),
     PdfToolSpec("image_to_pdf", "CONVERT", "Image to PDF", "Convert photos into a clean PDF document", Icons.Filled.PictureAsPdf, EmeraldGreen),
     PdfToolSpec("extract_images", "CONVERT", "Extract Images", "Save rendered visual plates from PDF", Icons.Filled.Collections, CrystalTeal),
-    PdfToolSpec("pdf_to_text", "CONVERT", "PDF to Text", "Extract searchable text & formulas", Icons.Filled.TextSnippet, EmeraldGreen)
+    PdfToolSpec("pdf_to_text", "CONVERT", "PDF to Text", "Extract searchable text & formulas", Icons.AutoMirrored.Filled.TextSnippet, EmeraldGreen)
 )
 
 @Composable
@@ -470,7 +474,7 @@ fun ToolWorkspaceOverlay(
     var rangeSelectionInput by remember(selectedPrimaryDoc?.id) { mutableStateOf("") }
     var showRangeInputBar by remember { mutableStateOf(false) }
 
-    // Rearrange PDF Page Order State (0-based original page indices in their current arranged order)
+    // Rearrange PDF Page Order State (0-based original page indices in their current arranged order + per-slot rotations)
     val rearrangedPageOrder = remember(selectedPrimaryDoc?.id) {
         mutableStateListOf<Int>().apply {
             selectedPrimaryDoc?.let { doc ->
@@ -478,10 +482,64 @@ fun ToolWorkspaceOverlay(
             }
         }
     }
+    val rearrangedSlotRotations = remember(selectedPrimaryDoc?.id) {
+        mutableStateMapOf<Int, Int>()
+    }
     var selectedSwapSlot by remember(selectedPrimaryDoc?.id) { mutableStateOf<Int?>(null) }
 
     // Rotate PDF State
     var rotationDegrees by remember { mutableIntStateOf(90) }
+    val perPageRotations = remember(selectedPrimaryDoc?.id) {
+        mutableStateMapOf<Int, Int>()
+    }
+
+    // Compress PDF Level State (Paperflow 3-Tier Compression)
+    var selectedCompressionLevel by remember { mutableStateOf(CompressionLevel.RECOMMENDED) }
+    var compressOutputName by remember(selectedPrimaryDoc?.id) {
+        mutableStateOf(
+            selectedPrimaryDoc?.title?.removeSuffix(".pdf")?.let { "$it-compressed" }
+                ?: "paperflow-compressed"
+        )
+    }
+
+    // Page Numbers Config State (Paperflow 6-Position Grid + Start Page)
+    var pageNumberPosition by remember { mutableStateOf("bottom-center") }
+    var pageNumberStartPageInput by remember { mutableStateOf("1") }
+    var pageNumberFormatStyle by remember { mutableStateOf("PAGE_X_OF_Y") }
+    var pageNumberOutputName by remember(selectedPrimaryDoc?.id) {
+        mutableStateOf(
+            selectedPrimaryDoc?.title?.removeSuffix(".pdf")?.let { "$it-numbered" }
+                ?: "paperflow-numbered"
+        )
+    }
+
+    // Metadata Inspector & Editor State (Paperflow XMP / DocumentInformation Editor)
+    var metaTitle by remember(selectedPrimaryDoc?.id) {
+        mutableStateOf(selectedPrimaryDoc?.title?.removeSuffix(".pdf") ?: "")
+    }
+    var metaAuthor by remember(selectedPrimaryDoc?.id) { mutableStateOf("") }
+    var metaSubject by remember(selectedPrimaryDoc?.id) { mutableStateOf("") }
+    var metaKeywords by remember(selectedPrimaryDoc?.id) { mutableStateOf("") }
+    var metaCreator by remember(selectedPrimaryDoc?.id) { mutableStateOf("Paperflow Studio") }
+    var metaProducer by remember(selectedPrimaryDoc?.id) { mutableStateOf("Paperflow PDFBox Engine") }
+    var metaOutputName by remember(selectedPrimaryDoc?.id) {
+        mutableStateOf(
+            selectedPrimaryDoc?.title?.removeSuffix(".pdf")?.let { "$it-metadata" }
+                ?: "paperflow-metadata"
+        )
+    }
+
+    LaunchedEffect(selectedPrimaryDoc?.id, toolId) {
+        if (toolId == "metadata" && selectedPrimaryDoc != null) {
+            val loaded = PdfEngine.inspectDetailedMetadata(context, selectedPrimaryDoc!!.filePath)
+            if (loaded.title.isNotBlank()) metaTitle = loaded.title
+            metaAuthor = loaded.author
+            metaSubject = loaded.subject
+            metaKeywords = loaded.keywords
+            if (loaded.creator.isNotBlank()) metaCreator = loaded.creator
+            if (loaded.producer.isNotBlank()) metaProducer = loaded.producer
+        }
+    }
 
     // Watermark Live Preview State
     var watermarkText by remember { mutableStateOf("CONFIDENTIAL • PAPERFLOW") }
@@ -1217,6 +1275,7 @@ fun ToolWorkspaceOverlay(
                                                 .clip(RoundedCornerShape(10.dp))
                                                 .clickable {
                                                     rearrangedPageOrder.clear()
+                                                    rearrangedSlotRotations.clear()
                                                     for (i in 0 until activeDoc.pageCount) rearrangedPageOrder.add(i)
                                                     selectedSwapSlot = null
                                                 }
@@ -1255,6 +1314,7 @@ fun ToolWorkspaceOverlay(
                                             ) {
                                                 rowSlots.forEach { slotIdx ->
                                                     val originalPageIdx = rearrangedPageOrder[slotIdx]
+                                                    val slotRotDeg = rearrangedSlotRotations[slotIdx] ?: 0
                                                     val isHighlightedForSwap = selectedSwapSlot == slotIdx
                                                     Box(modifier = Modifier.weight(1f)) {
                                                         RearrangePageThumbnailCard(
@@ -1262,6 +1322,7 @@ fun ToolWorkspaceOverlay(
                                                             originalPageIndex = originalPageIdx,
                                                             currentSlotIndex = slotIdx,
                                                             totalSlots = rearrangedPageOrder.size,
+                                                            rotationDegrees = slotRotDeg,
                                                             isSwapSelected = isHighlightedForSwap,
                                                             onTapCard = {
                                                                 val currentSel = selectedSwapSlot
@@ -1273,14 +1334,24 @@ fun ToolWorkspaceOverlay(
                                                                     val tmp = rearrangedPageOrder[currentSel]
                                                                     rearrangedPageOrder[currentSel] = rearrangedPageOrder[slotIdx]
                                                                     rearrangedPageOrder[slotIdx] = tmp
+                                                                    val tmpRot = rearrangedSlotRotations[currentSel] ?: 0
+                                                                    rearrangedSlotRotations[currentSel] = rearrangedSlotRotations[slotIdx] ?: 0
+                                                                    rearrangedSlotRotations[slotIdx] = tmpRot
                                                                     selectedSwapSlot = null
                                                                 }
+                                                            },
+                                                            onRotate90 = {
+                                                                val nextRot = ((rearrangedSlotRotations[slotIdx] ?: 0) + 90) % 360
+                                                                rearrangedSlotRotations[slotIdx] = nextRot
                                                             },
                                                             onMoveLeft = {
                                                                 if (slotIdx > 0) {
                                                                     val tmp = rearrangedPageOrder[slotIdx - 1]
                                                                     rearrangedPageOrder[slotIdx - 1] = rearrangedPageOrder[slotIdx]
                                                                     rearrangedPageOrder[slotIdx] = tmp
+                                                                    val tmpRot = rearrangedSlotRotations[slotIdx - 1] ?: 0
+                                                                    rearrangedSlotRotations[slotIdx - 1] = rearrangedSlotRotations[slotIdx] ?: 0
+                                                                    rearrangedSlotRotations[slotIdx] = tmpRot
                                                                     selectedSwapSlot = null
                                                                 }
                                                             },
@@ -1289,6 +1360,9 @@ fun ToolWorkspaceOverlay(
                                                                     val tmp = rearrangedPageOrder[slotIdx + 1]
                                                                     rearrangedPageOrder[slotIdx + 1] = rearrangedPageOrder[slotIdx]
                                                                     rearrangedPageOrder[slotIdx] = tmp
+                                                                    val tmpRot = rearrangedSlotRotations[slotIdx + 1] ?: 0
+                                                                    rearrangedSlotRotations[slotIdx + 1] = rearrangedSlotRotations[slotIdx] ?: 0
+                                                                    rearrangedSlotRotations[slotIdx] = tmpRot
                                                                     selectedSwapSlot = null
                                                                 }
                                                             }
@@ -2005,7 +2079,228 @@ fun ToolWorkspaceOverlay(
                     }
 
                     // ============================================================
-                    // METADATA INSPECTOR
+                    // COMPRESS PDF (Paperflow 3-Tier Compression Selector)
+                    // ============================================================
+                    "compress" -> {
+                        item {
+                            LiquidGlassPanel(
+                                modifier = Modifier.fillMaxWidth(),
+                                cornerRadius = 26.dp,
+                                tintColor = SolarAmber
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(20.dp),
+                                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    Text(
+                                        text = "COMPRESSION LEVEL (PAPERFLOW ENGINE)",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            letterSpacing = 1.2.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        ),
+                                        color = glass.textSecondary
+                                    )
+                                    CompressionLevel.entries.forEach { level ->
+                                        val isSelected = selectedCompressionLevel == level
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(18.dp))
+                                                .background(
+                                                    if (isSelected) SolarAmber.copy(alpha = 0.22f)
+                                                    else Color.White.copy(alpha = if (glass.isDark) 0.05f else 0.4f)
+                                                )
+                                                .border(
+                                                    width = if (isSelected) 1.8.dp else 1.dp,
+                                                    color = if (isSelected) SolarAmber else Color.White.copy(alpha = 0.35f),
+                                                    shape = RoundedCornerShape(18.dp)
+                                                )
+                                                .clickable { selectedCompressionLevel = level }
+                                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = level.label.uppercase(),
+                                                    style = MaterialTheme.typography.titleSmall.copy(
+                                                        fontWeight = FontWeight.ExtraBold,
+                                                        letterSpacing = 1.sp
+                                                    ),
+                                                    color = if (isSelected) SolarAmber else glass.textPrimary
+                                                )
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(
+                                                    text = level.subtitle,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = glass.textSecondary
+                                                )
+                                            }
+                                            if (isSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.CheckCircle,
+                                                    contentDescription = "Selected",
+                                                    tint = SolarAmber,
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "OUTPUT FILENAME",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            letterSpacing = 1.2.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        ),
+                                        color = glass.textSecondary
+                                    )
+                                    GlassOutlinedFilenameInput(
+                                        value = compressOutputName,
+                                        onValueChange = { compressOutputName = it },
+                                        placeholder = "${activeDoc.title.removeSuffix(".pdf")}-compressed",
+                                        accentColor = SolarAmber
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // ============================================================
+                    // PAGE NUMBERS (Paperflow 6-Position Grid + Start Page)
+                    // ============================================================
+                    "page_numbers" -> {
+                        item {
+                            LiquidGlassPanel(
+                                modifier = Modifier.fillMaxWidth(),
+                                cornerRadius = 26.dp,
+                                tintColor = IridescentPink
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(20.dp),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Text(
+                                        text = "STAMP POSITION (6-CORNER VECTOR GRID)",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            letterSpacing = 1.2.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        ),
+                                        color = glass.textSecondary
+                                    )
+
+                                    val positions = listOf(
+                                        listOf("top-left" to "Top Left", "top-center" to "Top Center", "top-right" to "Top Right"),
+                                        listOf("bottom-left" to "Bottom Left", "bottom-center" to "Bottom Center", "bottom-right" to "Bottom Right")
+                                    )
+                                    positions.forEach { rowItems ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            rowItems.forEach { (posKey, posLabel) ->
+                                                val sel = pageNumberPosition == posKey
+                                                Box(
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .clip(RoundedCornerShape(14.dp))
+                                                        .background(
+                                                            if (sel) IridescentPink.copy(alpha = 0.24f)
+                                                            else Color.White.copy(alpha = if (glass.isDark) 0.05f else 0.4f)
+                                                        )
+                                                        .border(
+                                                            width = if (sel) 1.8.dp else 1.dp,
+                                                            color = if (sel) IridescentPink else Color.White.copy(alpha = 0.35f),
+                                                            shape = RoundedCornerShape(14.dp)
+                                                        )
+                                                        .clickable { pageNumberPosition = posKey }
+                                                        .padding(vertical = 12.dp, horizontal = 6.dp),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = posLabel.uppercase(),
+                                                        style = MaterialTheme.typography.labelSmall.copy(
+                                                            fontWeight = FontWeight.ExtraBold,
+                                                            letterSpacing = 0.5.sp
+                                                        ),
+                                                        color = if (sel) IridescentPink else glass.textPrimary,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text(
+                                                text = "START FROM PAGE",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                                color = glass.textSecondary
+                                            )
+                                            GlassOutlinedFilenameInput(
+                                                value = pageNumberStartPageInput,
+                                                onValueChange = { pageNumberStartPageInput = it.filter { ch -> ch.isDigit() } },
+                                                placeholder = "1",
+                                                accentColor = IridescentPink
+                                            )
+                                        }
+                                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text(
+                                                text = "NUMBER FORMAT",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                                color = glass.textSecondary
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(16.dp))
+                                                    .background(IridescentPink.copy(alpha = 0.16f))
+                                                    .border(1.5.dp, IridescentPink.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
+                                                    .clickable {
+                                                        pageNumberFormatStyle =
+                                                            if (pageNumberFormatStyle == "PAGE_X_OF_Y") "NUMBER_ONLY" else "PAGE_X_OF_Y"
+                                                    }
+                                                    .padding(horizontal = 14.dp, vertical = 15.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = if (pageNumberFormatStyle == "PAGE_X_OF_Y") "Page 1 of N" else "1, 2, 3...",
+                                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                                    color = IridescentPink
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Text(
+                                        text = "OUTPUT FILENAME",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            letterSpacing = 1.2.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        ),
+                                        color = glass.textSecondary
+                                    )
+                                    GlassOutlinedFilenameInput(
+                                        value = pageNumberOutputName,
+                                        onValueChange = { pageNumberOutputName = it },
+                                        placeholder = "${activeDoc.title.removeSuffix(".pdf")}-numbered",
+                                        accentColor = IridescentPink
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // ============================================================
+                    // METADATA INSPECTOR & XMP EDITOR (Paperflow Style)
                     // ============================================================
                     "metadata" -> {
                         item {
@@ -2018,23 +2313,82 @@ fun ToolWorkspaceOverlay(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(20.dp),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     Text(
-                                        text = "DOCUMENT METADATA",
+                                        text = "DOCUMENT METADATA & XMP EDITOR",
                                         style = MaterialTheme.typography.labelLarge.copy(
                                             letterSpacing = 1.2.sp,
                                             fontWeight = FontWeight.ExtraBold
                                         ),
                                         color = LiquidCyan
                                     )
-                                    Text("Title: ${activeDoc.title}", fontWeight = FontWeight.Bold, color = glass.textPrimary)
-                                    Text("Category: ${activeDoc.categoryTag}", color = glass.textSecondary)
-                                    Text("Page Count: ${activeDoc.pageCount} pages", color = glass.textSecondary)
-                                    Text("File Size: ${GlassPaperViewModel.formatFileSize(activeDoc.fileSizeBytes)} (${activeDoc.fileSizeBytes} bytes)", color = glass.textSecondary)
-                                    Text("Security Status: ${if (activeDoc.passwordProtectionHash.isNotBlank()) "Password Protected (SHA-256 Vault)" else "Unlocked Standard PDF"}", color = EmeraldGreen)
-                                    Text("Last Opened: ${GlassPaperViewModel.formatRelativeTime(activeDoc.lastOpenedTimestamp)}", color = glass.textSecondary)
-                                    Text("Storage URI/Path: ${activeDoc.filePath}", style = MaterialTheme.typography.labelSmall, color = glass.textMuted)
+                                    Text(
+                                        text = "${activeDoc.pageCount} pages • ${GlassPaperViewModel.formatFileSize(activeDoc.fileSizeBytes)} • ${if (activeDoc.passwordProtectionHash.isNotBlank()) "AES-256 Encrypted" else "Standard Unlocked PDF"}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = EmeraldGreen
+                                    )
+
+                                    Text("TITLE", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = glass.textSecondary)
+                                    GlassOutlinedFilenameInput(
+                                        value = metaTitle,
+                                        onValueChange = { metaTitle = it },
+                                        placeholder = "Document Title",
+                                        accentColor = LiquidCyan
+                                    )
+
+                                    Text("AUTHOR", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = glass.textSecondary)
+                                    GlassOutlinedFilenameInput(
+                                        value = metaAuthor,
+                                        onValueChange = { metaAuthor = it },
+                                        placeholder = "Author Name",
+                                        accentColor = LiquidCyan
+                                    )
+
+                                    Text("SUBJECT", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = glass.textSecondary)
+                                    GlassOutlinedFilenameInput(
+                                        value = metaSubject,
+                                        onValueChange = { metaSubject = it },
+                                        placeholder = "Subject / Topic",
+                                        accentColor = LiquidCyan
+                                    )
+
+                                    Text("KEYWORDS", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = glass.textSecondary)
+                                    GlassOutlinedFilenameInput(
+                                        value = metaKeywords,
+                                        onValueChange = { metaKeywords = it },
+                                        placeholder = "comma, separated, keywords",
+                                        accentColor = LiquidCyan
+                                    )
+
+                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text("CREATOR", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = glass.textSecondary)
+                                            GlassOutlinedFilenameInput(
+                                                value = metaCreator,
+                                                onValueChange = { metaCreator = it },
+                                                placeholder = "Paperflow",
+                                                accentColor = LiquidCyan
+                                            )
+                                        }
+                                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text("PRODUCER", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = glass.textSecondary)
+                                            GlassOutlinedFilenameInput(
+                                                value = metaProducer,
+                                                onValueChange = { metaProducer = it },
+                                                placeholder = "PDFBox Engine",
+                                                accentColor = LiquidCyan
+                                            )
+                                        }
+                                    }
+
+                                    Text("OUTPUT FILENAME", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = glass.textSecondary)
+                                    GlassOutlinedFilenameInput(
+                                        value = metaOutputName,
+                                        onValueChange = { metaOutputName = it },
+                                        placeholder = "${activeDoc.title.removeSuffix(".pdf")}-metadata",
+                                        accentColor = LiquidCyan
+                                    )
                                 }
                             }
                         }
@@ -2049,7 +2403,6 @@ fun ToolWorkspaceOverlay(
         val showBottomBar = when (tool.id) {
             "merge" -> mergeQueue.isNotEmpty()
             "image_to_pdf" -> selectedImageUris.isNotEmpty()
-            "metadata" -> false
             else -> selectedPrimaryDoc != null
         }
 
@@ -2133,6 +2486,11 @@ fun ToolWorkspaceOverlay(
                 }
                 "pdf_to_text" -> {
                     buttonLabel = "EXTRACT DOCUMENT TEXT"
+                    buttonIcon = Icons.AutoMirrored.Filled.ArrowForward
+                    isButtonEnabled = !toolState.isRunning
+                }
+                "metadata" -> {
+                    buttonLabel = "SAVE UPDATED METADATA"
                     buttonIcon = Icons.AutoMirrored.Filled.ArrowForward
                     isButtonEnabled = !toolState.isRunning
                 }
@@ -2239,7 +2597,8 @@ fun ToolWorkspaceOverlay(
                                         viewModel.executePageSelectionTool(
                                             doc = doc,
                                             selectedZeroBasedPages = rearrangedPageOrder.toList(),
-                                            operationLabel = "Rearranged"
+                                            operationLabel = "Rearranged",
+                                            perSlotRotations = rearrangedSlotRotations.toMap()
                                         )
                                     }
                                 }
@@ -2294,22 +2653,35 @@ fun ToolWorkspaceOverlay(
                                 }
                                 "rotate" -> {
                                     activeDoc?.let { doc ->
-                                        viewModel.executeRotatePdf(doc, rotationDegrees)
+                                        viewModel.executeRotatePdf(doc, rotationDegrees, perPageRotations = perPageRotations.toMap())
                                     }
                                 }
                                 "page_numbers" -> {
                                     activeDoc?.let { doc ->
-                                        viewModel.executeStampPdf(doc, watermarkText = null, includePageNumbers = true)
+                                        val startPage = pageNumberStartPageInput.toIntOrNull()?.coerceAtLeast(1) ?: 1
+                                        viewModel.executePageNumbers(
+                                            doc = doc,
+                                            config = PageNumbersConfig(
+                                                position = pageNumberPosition,
+                                                startFromPage = startPage,
+                                                formatStyle = pageNumberFormatStyle,
+                                                outputFilename = pageNumberOutputName
+                                            )
+                                        )
                                     }
                                 }
                                 "compress" -> {
                                     activeDoc?.let { doc ->
-                                        viewModel.executeOptimizeOrGrayscalePdf(doc, grayscale = false, scaleFactor = 0.72f, label = "Compressed")
+                                        viewModel.executeCompressPdf(
+                                            doc = doc,
+                                            level = selectedCompressionLevel,
+                                            customOutputFilename = compressOutputName
+                                        )
                                     }
                                 }
                                 "repair" -> {
                                     activeDoc?.let { doc ->
-                                        viewModel.executeOptimizeOrGrayscalePdf(doc, grayscale = false, scaleFactor = 1.0f, label = "Repaired")
+                                        viewModel.executeRepairPdf(doc)
                                     }
                                 }
                                 "grayscale" -> {
@@ -2319,12 +2691,28 @@ fun ToolWorkspaceOverlay(
                                 }
                                 "pdf_to_image", "extract_images" -> {
                                     activeDoc?.let { doc ->
-                                        viewModel.executePdfToImages(doc)
+                                        viewModel.executePdfToImages(doc, extractEmbeddedOnly = (tool.id == "extract_images"))
                                     }
                                 }
                                 "pdf_to_text" -> {
                                     activeDoc?.let { doc ->
                                         viewModel.executePdfToText(doc)
+                                    }
+                                }
+                                "metadata" -> {
+                                    activeDoc?.let { doc ->
+                                        viewModel.executeUpdateMetadata(
+                                            doc = doc,
+                                            metadata = PdfDetailedMetadata(
+                                                title = metaTitle,
+                                                author = metaAuthor,
+                                                subject = metaSubject,
+                                                keywords = metaKeywords,
+                                                creator = metaCreator,
+                                                producer = metaProducer
+                                            ),
+                                            customOutputFilename = metaOutputName
+                                        )
                                     }
                                 }
                                 "image_to_pdf" -> {
@@ -3037,7 +3425,7 @@ private fun SelectablePageThumbnailCard(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF101010)),
+                    .background(Color.Transparent),
                 contentAlignment = Alignment.Center
             ) {
                 PlayStoreOrganicBlobSpinner(indicatorSize = 34.dp)
@@ -3092,8 +3480,10 @@ private fun RearrangePageThumbnailCard(
     originalPageIndex: Int,
     currentSlotIndex: Int,
     totalSlots: Int,
+    rotationDegrees: Int = 0,
     isSwapSelected: Boolean,
     onTapCard: () -> Unit,
+    onRotate90: () -> Unit = {},
     onMoveLeft: () -> Unit,
     onMoveRight: () -> Unit
 ) {
@@ -3124,19 +3514,20 @@ private fun RearrangePageThumbnailCard(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(12.dp))
+                    .rotate(rotationDegrees.toFloat())
             )
         } else {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF101010)),
+                    .background(Color.Transparent),
                 contentAlignment = Alignment.Center
             ) {
                 PlayStoreOrganicBlobSpinner(indicatorSize = 34.dp)
             }
         }
 
-        // Top-right quick reorder arrows
+        // Top-right quick reorder arrows + 90° Rotate button (from Paperflow Rearrange)
         Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -3145,6 +3536,15 @@ private fun RearrangePageThumbnailCard(
                 .background(Color(0xCC0F172A)),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.RotateRight,
+                contentDescription = "Rotate Page 90°",
+                tint = LiquidCyan,
+                modifier = Modifier
+                    .size(24.dp)
+                    .clickable { onRotate90() }
+                    .padding(3.dp)
+            )
             if (currentSlotIndex > 0) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
@@ -3169,7 +3569,7 @@ private fun RearrangePageThumbnailCard(
             }
         }
 
-        // Bottom-left "PAGE X" Pill Badge (Matches Photo 4)
+        // Bottom-left "PAGE X" Pill Badge (Matches Photo 4 + Rotation indicator)
         Box(
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -3179,7 +3579,7 @@ private fun RearrangePageThumbnailCard(
                 .padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Text(
-                text = "PAGE ${originalPageIndex + 1}",
+                text = if (rotationDegrees != 0) "PAGE ${originalPageIndex + 1} • ${rotationDegrees}°" else "PAGE ${originalPageIndex + 1}",
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 0.6.sp

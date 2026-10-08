@@ -56,3 +56,13 @@ data class AnnotationEntity(
     val textNoteContent: String = "",
     val createdAtTimestamp: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "ai_chat_messages")
+data class AiChatMessageEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val role: String, // "user" or "assistant"
+    val content: String,
+    val contextBadge: String = "", // e.g., "Research.pdf • Page 2" or "Study Note"
+    val isError: Boolean = false,
+    val timestamp: Long = System.currentTimeMillis()
+)

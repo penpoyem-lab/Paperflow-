@@ -48,6 +48,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -71,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.auth.AuthSessionState
+import com.example.data.AiButtonSizeOption
 import com.example.data.AppSettings
 import com.example.data.AppThemeOption
 import com.example.data.PageLayoutOption
@@ -79,6 +82,7 @@ import com.example.data.ReaderThemeOption
 import com.example.data.TextSizeOption
 import com.example.ui.GlassPaperViewModel
 import com.example.ui.components.LiquidGlassPanel
+import com.example.ui.components.PaperflowAiPrismLogo
 import com.example.ui.theme.CrystalTeal
 import com.example.ui.theme.ElectricBlue
 import com.example.ui.theme.EmeraldGreen
@@ -86,9 +90,15 @@ import com.example.ui.theme.IridescentPink
 import com.example.ui.theme.LiquidCyan
 import com.example.ui.theme.LiquidMagenta
 import com.example.ui.theme.LocalGlassColors
+import com.example.ui.theme.NothingBrightRed
+import com.example.ui.theme.NothingCrimsonRed
+import com.example.ui.theme.NothingDotMatrixFamily
+import com.example.ui.theme.NothingGlyphWhite
+import com.example.ui.theme.NothingObsidianBlack
 import com.example.ui.theme.PrismPurple
 import com.example.ui.theme.PrismViolet
 import com.example.ui.theme.SolarAmber
+import com.example.ui.theme.SpaceMonoFamily
 import com.example.ui.theme.WarmGold
 
 @Composable
@@ -206,14 +216,210 @@ fun SettingsScreen(
             }
         }
 
-        // 1. PHOTO THEMES & VISUAL EDITIONS (NEW SECTION)
+        // 1. PHOTO THEMES & VISUAL EDITIONS + THEME PAGE BUTTON
         item {
-            SettingsSectionHeader("PHOTO THEMES & VISUAL EDITIONS", WarmGold)
+            SettingsSectionHeader("THEME & APP STYLE", NothingCrimsonRed)
             Spacer(modifier = Modifier.height(8.dp))
-            GalacticCodexPhotoThemeCard(
-                selectedTheme = settings.appTheme,
-                onSelectTheme = { viewModel.setAppTheme(it) }
-            )
+            LiquidGlassPanel(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { viewModel.openThemePage() }
+                    .testTag("settings_open_theme_page_card"),
+                cornerRadius = 26.dp,
+                tintColor = NothingCrimsonRed
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF141518))
+                            .border(1.5.dp, NothingCrimsonRed.copy(alpha = 0.85f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Palette,
+                            contentDescription = "Theme",
+                            tint = NothingCrimsonRed,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Theme",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 18.sp
+                            ),
+                            color = glass.textPrimary
+                        )
+                        Text(
+                            text = "${settings.appStyle.label} • ${settings.themeMode.label}",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = NothingCrimsonRed
+                        )
+                        Text(
+                            text = "Switch between Nothing UI, Apple UI & Journey Awaits UI",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = glass.textSecondary
+                        )
+                    }
+                    Button(
+                        onClick = { viewModel.openThemePage() },
+                        colors = ButtonDefaults.buttonColors(containerColor = NothingCrimsonRed),
+                        modifier = Modifier.testTag("settings_theme_button")
+                    ) {
+                        Text("Theme", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // 1.5 FLOATING AI ASSISTANT CONTROLS
+        item {
+            SettingsSectionHeader("FLOATING AI ASSISTANT", LiquidCyan)
+            Spacer(modifier = Modifier.height(8.dp))
+            LiquidGlassPanel(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings_ai_assistant_section"),
+                cornerRadius = 26.dp,
+                tintColor = LiquidCyan
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = listOf(Color(0xFF0E1B38), Color(0xFF281B52))
+                                    )
+                                )
+                                .border(1.2.dp, LiquidCyan.copy(alpha = 0.7f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            PaperflowAiPrismLogo(size = 30.dp)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Paperflow Draggable AI",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = glass.textPrimary
+                            )
+                            Text(
+                                text = "Summarize PDFs, explain pages & generate study notes anywhere in the app",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = glass.textSecondary
+                            )
+                        }
+                    }
+
+                    SettingsSwitchRow(
+                        title = "Enable Floating AI Button",
+                        subtitle = "Show the draggable liquid-glass AI orb above screens",
+                        checked = settings.aiAssistantEnabled,
+                        onCheckedChange = { viewModel.setAiAssistantEnabled(it) }
+                    )
+
+                    SettingsSwitchRow(
+                        title = "Hide Button While Reading PDFs",
+                        subtitle = "Automatically hide the floating AI orb inside the PDF Reader",
+                        checked = settings.aiHideWhileReadingPdf,
+                        onCheckedChange = { viewModel.setAiHideWhileReadingPdf(it) }
+                    )
+
+                    Text(
+                        text = "Floating Button Size",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = glass.textPrimary
+                    )
+                    GlassSegmentedControl(
+                        options = listOf(
+                            AiButtonSizeOption.COMPACT to "Compact",
+                            AiButtonSizeOption.MEDIUM to "Standard",
+                            AiButtonSizeOption.LARGE to "Large"
+                        ),
+                        selected = settings.aiButtonSize,
+                        accentColor = LiquidCyan,
+                        onSelect = { viewModel.setAiButtonSize(it) }
+                    )
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Floating Button Opacity",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = glass.textPrimary
+                            )
+                            Text(
+                                text = "${(settings.aiButtonOpacity * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = LiquidCyan
+                            )
+                        }
+                        Slider(
+                            value = settings.aiButtonOpacity,
+                            onValueChange = { viewModel.setAiButtonOpacity(it) },
+                            valueRange = 0.35f..1.0f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = LiquidCyan,
+                                activeTrackColor = ElectricBlue
+                            ),
+                            modifier = Modifier.testTag("settings_ai_opacity_slider")
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = { viewModel.openAiChatPanel() },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("settings_open_ai_chat_button"),
+                            colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue)
+                        ) {
+                            Text("Open AI Chat", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                        TextButton(
+                            onClick = { viewModel.resetAiButtonPosition() },
+                            modifier = Modifier.testTag("settings_reset_ai_pos_button")
+                        ) {
+                            Text("Reset Position", color = LiquidCyan, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    SettingsInfoRow(
+                        icon = Icons.Filled.DeleteForever,
+                        title = "Clear AI Chat History",
+                        subtitle = "Delete all saved Paperflow AI conversation messages",
+                        accent = IridescentPink,
+                        onClick = { viewModel.clearAiChatConversation() }
+                    )
+                }
+            }
         }
 
         // 2. APPEARANCE
@@ -231,23 +437,6 @@ fun SettingsScreen(
                         .padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(
-                        text = "App Theme",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = glass.textPrimary
-                    )
-                    GlassSegmentedControl(
-                        options = listOf(
-                            AppThemeOption.LIGHT to "Light",
-                            AppThemeOption.DARK to "Dark",
-                            AppThemeOption.SYSTEM to "System",
-                            AppThemeOption.GALACTIC_CODEX to "Galactic"
-                        ),
-                        selected = settings.appTheme,
-                        accentColor = if (settings.appTheme == AppThemeOption.GALACTIC_CODEX) WarmGold else ElectricBlue,
-                        onSelect = { viewModel.setAppTheme(it) }
-                    )
-
                     Text(
                         text = "Reader Theme",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -622,261 +811,6 @@ fun SettingsScreen(
                 }
             }
         )
-    }
-}
-
-@Composable
-private fun GalacticCodexPhotoThemeCard(
-    selectedTheme: AppThemeOption,
-    onSelectTheme: (AppThemeOption) -> Unit
-) {
-    val glass = LocalGlassColors.current
-    val isGalacticSelected = selectedTheme == AppThemeOption.GALACTIC_CODEX
-
-    LiquidGlassPanel(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("settings_photo_theme_section"),
-        cornerRadius = 28.dp,
-        tintColor = WarmGold
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Change Theme Section",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = glass.textPrimary
-                    )
-                    Text(
-                        text = "Select the Galactic Scholar cosmic photo theme or classic Liquid Glass editions",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = glass.textSecondary
-                    )
-                }
-                Icon(
-                    imageVector = Icons.Filled.Palette,
-                    contentDescription = "Theme Gallery",
-                    tint = WarmGold,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            // Interactive Photo Theme Showcase Card — "Galactic Scholar • Cosmic Codex"
-            val previewShape = RoundedCornerShape(24.dp)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(previewShape)
-                    .border(
-                        width = if (isGalacticSelected) 2.2.dp else 1.3.dp,
-                        brush = Brush.linearGradient(
-                            colors = if (isGalacticSelected) {
-                                listOf(WarmGold, Color.White, LiquidCyan, WarmGold)
-                            } else {
-                                listOf(Color.White.copy(alpha = 0.65f), WarmGold.copy(alpha = 0.45f))
-                            }
-                        ),
-                        shape = previewShape
-                    )
-                    .testTag("settings_galactic_codex_theme_card")
-                    .clickable { onSelectTheme(AppThemeOption.GALACTIC_CODEX) }
-            ) {
-                // Cosmic Nebula & Swirling Gold-Teal Liquid Glass Photo Art
-                Image(
-                    painter = painterResource(id = R.drawable.img_hero_galactic_codex_1791427754468),
-                    contentDescription = "Galactic Scholar Photo Theme Preview",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .matchParentSize()
-                )
-
-                // Dark Cosmic Scrim for crisp legibility
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color(0xFF050811).copy(alpha = 0.68f),
-                                    Color(0xFF0B1522).copy(alpha = 0.56f),
-                                    Color(0xFF1A1208).copy(alpha = 0.82f)
-                                )
-                            )
-                        )
-                )
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Mini Preview of the Galactic Scholar Header ("Galaxy Explorer" P orb + "Journey Awaits, Galactic Scholar")
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF0F172A).copy(alpha = 0.85f))
-                                    .border(
-                                        width = 1.2.dp,
-                                        brush = Brush.linearGradient(listOf(Color.White, LiquidCyan, PrismViolet)),
-                                        shape = CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(30.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            brush = Brush.radialGradient(
-                                                colors = listOf(Color.White, LiquidCyan, PrismViolet)
-                                            )
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "P",
-                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
-                                        color = Color.White
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "Journey Awaits, Galactic Scholar",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
-                                    color = Color.White
-                                )
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                                ) {
-                                    Text(
-                                        text = "Read • Organize • Learn",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color(0xFFCBD5E1)
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Filled.Diamond,
-                                        contentDescription = null,
-                                        tint = LiquidCyan,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Filled.LocalFireDepartment,
-                                        contentDescription = null,
-                                        tint = WarmGold,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        if (isGalacticSelected) {
-                            Row(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(WarmGold)
-                                    .padding(horizontal = 10.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.CheckCircle,
-                                    contentDescription = "Active Theme",
-                                    tint = Color(0xFF1E1306),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Active",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
-                                    color = Color(0xFF1E1306)
-                                )
-                            }
-                        }
-                    }
-
-                    // Mini "Discover Your Codex" Glass Preview Strip
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                brush = Brush.horizontalGradient(
-                                    colors = listOf(
-                                        Color(0xFF0E3A47).copy(alpha = 0.65f),
-                                        Color(0xFF451A03).copy(alpha = 0.60f)
-                                    )
-                                )
-                            )
-                            .border(
-                                width = 1.dp,
-                                brush = Brush.horizontalGradient(
-                                    colors = listOf(WarmGold.copy(alpha = 0.85f), LiquidCyan.copy(alpha = 0.75f))
-                                ),
-                                shape = RoundedCornerShape(16.dp)
-                            )
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "GALACTIC CODEX PHOTO THEME",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    letterSpacing = 1.1.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 9.5.sp
-                                ),
-                                color = WarmGold
-                            )
-                            Text(
-                                text = "Discover Your Codex • Starfield & Golden Glass Bar",
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                                color = Color.White
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(
-                                    if (isGalacticSelected) {
-                                        Color.White.copy(alpha = 0.22f)
-                                    } else {
-                                        WarmGold
-                                    }
-                                )
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = if (isGalacticSelected) "Applied" else "Apply Theme",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = if (isGalacticSelected) Color.White else Color(0xFF1E1306)
-                            )
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 

@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DocumentScanner
@@ -40,7 +41,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.UploadFile
-import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -83,6 +83,8 @@ import com.example.ui.GlassPaperViewModel
 import com.example.ui.LibraryCategory
 import com.example.ui.LibrarySortOrder
 import com.example.ui.components.GlassCircularIconButton
+import com.example.ui.components.LiquidGlassDropdownMenu
+import com.example.ui.components.LiquidGlassDropdownMenuItem
 import com.example.ui.components.LiquidGlassPanel
 import com.example.ui.theme.CrystalTeal
 import com.example.ui.theme.ElectricBlue
@@ -195,7 +197,7 @@ fun LibraryScreen(
 
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         GlassCircularIconButton(
-                            icon = if (isGridView) Icons.Filled.ViewList else Icons.Filled.GridView,
+                            icon = if (isGridView) Icons.AutoMirrored.Filled.ViewList else Icons.Filled.GridView,
                             contentDescription = "Toggle Grid or List View",
                             onClick = { viewModel.setLibraryGridView(!isGridView) },
                             modifier = Modifier.testTag("library_view_toggle")
@@ -208,21 +210,26 @@ fun LibraryScreen(
                                 onClick = { sortMenuExpanded = true },
                                 modifier = Modifier.testTag("library_sort_button")
                             )
-                            DropdownMenu(
+                            LiquidGlassDropdownMenu(
                                 expanded = sortMenuExpanded,
                                 onDismissRequest = { sortMenuExpanded = false }
                             ) {
-                                LibrarySortOrder.entries.forEach { option ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                text = option.label,
-                                                fontWeight = if (sortOrder == option) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        },
+                                LiquidGlassDropdownMenuItem(
+                                    text = "Refresh Page",
+                                    onClick = {
+                                        sortMenuExpanded = false
+                                        viewModel.refreshAppPage()
+                                    }
+                                )
+                                val sortEntries = LibrarySortOrder.entries
+                                sortEntries.forEachIndexed { idx, option ->
+                                    LiquidGlassDropdownMenuItem(
+                                        text = "Sort by: ${option.label}",
+                                        textColor = if (sortOrder == option) LiquidCyan else Color.White,
+                                        showDivider = idx < sortEntries.lastIndex,
                                         onClick = {
-                                            sortMenuExpanded = false
                                             viewModel.setLibrarySortOrder(option)
+                                            sortMenuExpanded = false
                                         }
                                     )
                                 }
@@ -949,44 +956,46 @@ private fun DocumentOverflowMenu(
     onShare: () -> Unit,
     onDelete: () -> Unit
 ) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        DropdownMenuItem(
-            text = { Text("Open") },
+    LiquidGlassDropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        LiquidGlassDropdownMenuItem(
+            text = "Open",
             onClick = {
                 onDismiss()
                 onOpen()
             }
         )
-        DropdownMenuItem(
-            text = { Text("Rename") },
+        LiquidGlassDropdownMenuItem(
+            text = "Rename",
             onClick = {
                 onDismiss()
                 onRename()
             }
         )
-        DropdownMenuItem(
-            text = { Text("Move / Organize") },
+        LiquidGlassDropdownMenuItem(
+            text = "Move / Organize",
             onClick = {
                 onDismiss()
                 onMove()
             }
         )
-        DropdownMenuItem(
-            text = { Text("Duplicate") },
+        LiquidGlassDropdownMenuItem(
+            text = "Duplicate",
             onClick = {
                 onDismiss()
                 onDuplicate()
             }
         )
-        DropdownMenuItem(
-            text = { Text("Share") },
+        LiquidGlassDropdownMenuItem(
+            text = "Share",
             onClick = {
                 onDismiss()
                 onShare()
             }
         )
-        DropdownMenuItem(
-            text = { Text("Delete", color = LiquidMagenta) },
+        LiquidGlassDropdownMenuItem(
+            text = "Delete",
+            textColor = LiquidMagenta,
+            showDivider = false,
             onClick = {
                 onDismiss()
                 onDelete()

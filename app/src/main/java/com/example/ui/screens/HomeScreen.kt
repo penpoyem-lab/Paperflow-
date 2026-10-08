@@ -37,12 +37,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PictureAsPdf
@@ -85,8 +83,9 @@ import com.example.data.PdfDocumentEntity
 import com.example.data.StreakData
 import com.example.ui.GlassPaperViewModel
 import com.example.ui.LibraryCategory
-import com.example.ui.MainTab
 import com.example.ui.components.GlassCircularIconButton
+import com.example.ui.components.LiquidGlassDropdownMenu
+import com.example.ui.components.LiquidGlassDropdownMenuItem
 import com.example.ui.components.LiquidGlassPanel
 import com.example.ui.theme.CrystalTeal
 import com.example.ui.theme.ElectricBlue
@@ -95,9 +94,15 @@ import com.example.ui.theme.IridescentPink
 import com.example.ui.theme.LiquidCyan
 import com.example.ui.theme.LiquidMagenta
 import com.example.ui.theme.LocalGlassColors
+import com.example.ui.theme.NothingBrightRed
+import com.example.ui.theme.NothingCrimsonRed
+import com.example.ui.theme.NothingDotMatrixFamily
+import com.example.ui.theme.NothingGlyphWhite
+import com.example.ui.theme.NothingObsidianBlack
 import com.example.ui.theme.PrismPurple
 import com.example.ui.theme.PrismViolet
 import com.example.ui.theme.SolarAmber
+import com.example.ui.theme.SpaceMonoFamily
 import com.example.ui.theme.WarmGold
 
 @Composable
@@ -114,6 +119,7 @@ fun HomeScreen(
     onOpenAuth: () -> Unit = {},
     onOpenGitHubRepo: () -> Unit = {},
     onReplayFlashIntro: () -> Unit = {},
+    onRefreshPage: () -> Unit = {},
     onNavigateToLibrary: (LibraryCategory) -> Unit
 ) {
     val glass = LocalGlassColors.current
@@ -142,12 +148,14 @@ fun HomeScreen(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
                 ) {
                     // Iridescent Glass Orb Avatar Button (with "Galaxy Explorer" outer ring in Galactic Codex theme)
                     Box(
                         modifier = Modifier
-                            .size(if (glass.isGalacticCodex) 74.dp else 56.dp)
+                            .size(if (glass.isGalacticCodex) 56.dp else 46.dp)
                             .testTag("home_avatar_auth_button")
                             .clickable { onOpenAuth() },
                         contentAlignment = Alignment.Center
@@ -157,7 +165,7 @@ fun HomeScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .shadow(18.dp, CircleShape, ambientColor = LiquidCyan, spotColor = PrismViolet)
+                                    .shadow(14.dp, CircleShape, ambientColor = LiquidCyan, spotColor = PrismViolet)
                                     .clip(CircleShape)
                                     .background(
                                         brush = Brush.radialGradient(
@@ -168,7 +176,7 @@ fun HomeScreen(
                                         )
                                     )
                                     .border(
-                                        width = 1.4.dp,
+                                        width = 1.2.dp,
                                         brush = Brush.linearGradient(
                                             colors = listOf(
                                                 Color.White.copy(alpha = 0.65f),
@@ -179,40 +187,19 @@ fun HomeScreen(
                                         shape = CircleShape
                                     )
                             )
-                            Text(
-                                text = "Galaxy Explorer",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 7.5.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    letterSpacing = 0.3.sp
-                                ),
-                                color = Color.White.copy(alpha = 0.78f),
-                                modifier = Modifier
-                                    .align(Alignment.TopCenter)
-                                    .padding(top = 3.dp)
-                            )
                         }
 
-                        // Inner Glowing Pearl-Cyan-Violet Orb with "P" or user initial
+                        // Inner Glowing Emblem Orb with Paperflow Red/Black/White Icon or user initial
                         Box(
                             modifier = Modifier
-                                .size(if (glass.isGalacticCodex) 48.dp else 56.dp)
-                                .shadow(14.dp, CircleShape, ambientColor = LiquidCyan, spotColor = PrismPurple)
+                                .size(if (glass.isGalacticCodex) 40.dp else 46.dp)
+                                .shadow(12.dp, CircleShape, ambientColor = Color(0xFFFF1A1A), spotColor = ElectricBlue)
                                 .clip(CircleShape)
-                                .background(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(
-                                            Color.White.copy(alpha = 0.94f),
-                                            LiquidCyan.copy(alpha = 0.82f),
-                                            ElectricBlue.copy(alpha = 0.85f),
-                                            PrismPurple.copy(alpha = 0.85f)
-                                        )
-                                    )
-                                )
+                                .background(Color(0xFF0A0A0A))
                                 .border(
-                                    width = 1.8.dp,
+                                    width = 1.6.dp,
                                     brush = Brush.linearGradient(
-                                        colors = listOf(Color.White, LiquidCyan, IridescentPink)
+                                        colors = listOf(Color.White, Color(0xFFFF1A1A), Color.White.copy(alpha = 0.75f))
                                     ),
                                     shape = CircleShape
                                 ),
@@ -221,7 +208,6 @@ fun HomeScreen(
                             val displayInitial = when {
                                 authSession.isAuthenticated && authSession.userFullName.isNotBlank() ->
                                     authSession.userFullName.trim().take(1).uppercase()
-                                glass.isGalacticCodex -> "P"
                                 else -> null
                             }
                             if (displayInitial != null) {
@@ -229,25 +215,79 @@ fun HomeScreen(
                                     text = displayInitial,
                                     style = MaterialTheme.typography.titleLarge.copy(
                                         fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 22.sp
+                                        fontSize = 18.sp
                                     ),
                                     color = Color.White
                                 )
                             } else {
-                                Icon(
-                                    imageVector = Icons.Filled.AutoAwesome,
+                                Image(
+                                    painter = painterResource(id = R.drawable.paperflow_red_black_icon_1791443745243),
                                     contentDescription = "Paperflow Account & Sign In",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(26.dp)
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(CircleShape)
                                 )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
 
-                    Column {
-                        if (glass.isGalacticCodex) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        if (glass.isNothingOs) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(NothingCrimsonRed)
+                                )
+                                Text(
+                                    text = "NOTHING OS // LIQUID GLASS 3.0",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontFamily = SpaceMonoFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 10.sp,
+                                        letterSpacing = 1.1.sp
+                                    ),
+                                    color = NothingCrimsonRed,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (authSession.isAuthenticated && authSession.userFullName.isNotBlank()) {
+                                    "SYS.USER // ${authSession.userFullName.substringBefore(" ").uppercase()}"
+                                } else {
+                                    "PAPERFLOW // OS"
+                                },
+                                style = MaterialTheme.typography.headlineLarge.copy(
+                                    fontFamily = NothingDotMatrixFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 20.sp,
+                                    letterSpacing = 1.2.sp
+                                ),
+                                color = NothingGlyphWhite,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(1.dp))
+                            Text(
+                                text = "GLYPH MATRIX • 165HZ ULTRA-SMOOTH ENGINE",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = SpaceMonoFamily,
+                                    fontSize = 10.5.sp
+                                ),
+                                color = glass.textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        } else if (glass.isGalacticCodex) {
                             val librarianHandle = when {
                                 authSession.isAuthenticated && authSession.userEmail.isNotBlank() ->
                                     authSession.userEmail.substringBefore("@")
@@ -259,28 +299,34 @@ fun HomeScreen(
                                 text = "Journey Awaits,\nGalactic Scholar",
                                 style = MaterialTheme.typography.headlineLarge.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 22.sp,
-                                    lineHeight = 26.sp
+                                    fontSize = 18.sp,
+                                    lineHeight = 22.sp
                                 ),
-                                color = Color.White
+                                color = Color.White,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
-                            Spacer(modifier = Modifier.height(3.dp))
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "Librarian $librarianHandle",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.Medium,
-                                    fontSize = 14.sp
+                                    fontSize = 12.5.sp
                                 ),
-                                color = Color(0xFFCBD5E1)
+                                color = Color(0xFFCBD5E1),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
                         } else {
                             Text(
                                 text = stringResource(R.string.greeting_morning),
                                 style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Medium
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 13.5.sp
                                 ),
-                                color = if (glass.isDark) Color.White.copy(alpha = 0.85f) else Color(0xFF1E3A8A)
+                                color = if (glass.isDark) Color.White.copy(alpha = 0.85f) else Color(0xFF1E3A8A),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
@@ -291,75 +337,38 @@ fun HomeScreen(
                                     },
                                     style = MaterialTheme.typography.headlineLarge.copy(
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 23.sp
+                                        fontSize = 19.sp
                                     ),
-                                    color = if (glass.isDark) Color.White else Color(0xFF0F172A)
+                                    color = if (glass.isDark) Color.White else Color(0xFF0F172A),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(5.dp))
                                 Icon(
                                     imageVector = Icons.Filled.AutoAwesome,
                                     contentDescription = null,
                                     tint = SolarAmber,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
-                            Spacer(modifier = Modifier.height(2.dp))
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
+                            Spacer(modifier = Modifier.height(1.dp))
                             Text(
                                 text = stringResource(R.string.subtitle_home),
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.Medium,
-                                    fontSize = if (glass.isGalacticCodex) 13.sp else 12.sp
+                                    fontSize = 11.5.sp
                                 ),
-                                color = glass.textSecondary
+                                color = glass.textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-
-                            val activeDays = streakData.currentStreak.coerceAtLeast(1)
-                            // Snapchat-style Fire Streak Pill (🔥 + streak count)
-                            Row(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(
-                                        if (glass.isDark || glass.isGalacticCodex) {
-                                            Color(0xFF1F2430).copy(alpha = 0.88f)
-                                        } else {
-                                            Color(0xFFFFF7ED)
-                                        }
-                                    )
-                                    .border(
-                                        width = 1.dp,
-                                        color = SolarAmber.copy(alpha = 0.65f),
-                                        shape = RoundedCornerShape(50)
-                                    )
-                                    .clickable(onClick = onOpenStreakDetails)
-                                    .padding(horizontal = 9.dp, vertical = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "\uD83D\uDD25",
-                                    fontSize = 12.sp
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "$activeDays",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 12.sp
-                                    ),
-                                    color = if (glass.isDark || glass.isGalacticCodex) Color.White else Color(0xFF9A3412)
-                                )
-                            }
                         }
                     }
                 }
 
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Snapchat-style Top Bar Streak Button (🔥 + Count Pill)
@@ -373,6 +382,7 @@ fun HomeScreen(
                         icon = Icons.Filled.Search,
                         contentDescription = "Search documents",
                         onClick = { onNavigateToLibrary(LibraryCategory.ALL) },
+                        size = 40.dp,
                         modifier = Modifier.testTag("home_search_button")
                     )
                     Box {
@@ -380,64 +390,69 @@ fun HomeScreen(
                             icon = Icons.Filled.MoreHoriz,
                             contentDescription = "More options",
                             onClick = { showTopMenu = true },
+                            size = 40.dp,
                             modifier = Modifier.testTag("home_more_button")
                         )
-                        DropdownMenu(
+                        LiquidGlassDropdownMenu(
                             expanded = showTopMenu,
                             onDismissRequest = { showTopMenu = false }
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("Import PDF") },
+                            LiquidGlassDropdownMenuItem(
+                                text = "Refresh Page",
+                                onClick = {
+                                    showTopMenu = false
+                                    onRefreshPage()
+                                }
+                            )
+                            LiquidGlassDropdownMenuItem(
+                                text = "Import PDF",
                                 onClick = {
                                     showTopMenu = false
                                     onOpenSelectPdf()
                                 }
                             )
-                            DropdownMenuItem(
-                                text = { Text("Create Study Note") },
+                            LiquidGlassDropdownMenuItem(
+                                text = "Create Study Note",
                                 onClick = {
                                     showTopMenu = false
                                     onOpenNotes()
                                 }
                             )
-                            DropdownMenuItem(
-                                text = { Text("Daily Reading Streak") },
+                            LiquidGlassDropdownMenuItem(
+                                text = "Saved Bookmarks",
+                                onClick = {
+                                    showTopMenu = false
+                                    onOpenBookmarks()
+                                }
+                            )
+                            LiquidGlassDropdownMenuItem(
+                                text = "\uD83D\uDD25 Daily Reading Streak",
                                 onClick = {
                                     showTopMenu = false
                                     onOpenStreakDetails()
                                 }
                             )
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        if (authSession.isAuthenticated) {
-                                            "Account (${authSession.userEmail})"
-                                        } else {
-                                            "Sign In / Create Account"
-                                        }
-                                    )
+                            LiquidGlassDropdownMenuItem(
+                                text = if (authSession.isAuthenticated) {
+                                    "Account (${authSession.userEmail})"
+                                } else {
+                                    "Sign In / Create Account"
                                 },
                                 onClick = {
                                     showTopMenu = false
                                     onOpenAuth()
                                 }
                             )
-                            DropdownMenuItem(
-                                text = { Text("Saved Bookmarks") },
-                                onClick = {
-                                    showTopMenu = false
-                                    onOpenBookmarks()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("GitHub Repository") },
+                            LiquidGlassDropdownMenuItem(
+                                text = "GitHub Repository",
                                 onClick = {
                                     showTopMenu = false
                                     onOpenGitHubRepo()
                                 }
                             )
-                            DropdownMenuItem(
-                                text = { Text("Replay Flash Intro") },
+                            LiquidGlassDropdownMenuItem(
+                                text = "Replay Flash Intro",
+                                showDivider = false,
                                 onClick = {
                                     showTopMenu = false
                                     onReplayFlashIntro()
@@ -719,15 +734,20 @@ private fun HeroOpenPdfCard(
                 .matchParentSize()
                 .background(
                     brush = Brush.linearGradient(
-                        colors = if (glass.isGalacticCodex) {
-                            listOf(
+                        colors = when {
+                            glass.isNothingOs -> listOf(
+                                Color(0xFF0A0C10).copy(alpha = 0.80f),
+                                Color(0xFF161922).copy(alpha = 0.72f),
+                                NothingCrimsonRed.copy(alpha = 0.36f),
+                                Color(0xFF0B0E14).copy(alpha = 0.84f)
+                            )
+                            glass.isGalacticCodex -> listOf(
                                 Color(0xFF451A03).copy(alpha = 0.36f),
                                 Color(0xFF0F292E).copy(alpha = 0.44f),
                                 Color(0xFF064E3B).copy(alpha = 0.38f),
                                 Color(0xFF78350F).copy(alpha = 0.34f)
                             )
-                        } else {
-                            listOf(
+                            else -> listOf(
                                 Color(0xFF1E3A8A).copy(alpha = 0.42f),
                                 Color(0xFF4F46E5).copy(alpha = 0.36f),
                                 Color(0xFF9333EA).copy(alpha = 0.38f),
@@ -744,19 +764,38 @@ private fun HeroOpenPdfCard(
                             radius = size.width * 0.55f
                         )
                     )
+                    if (glass.isNothingOs) {
+                        val step = 16.dp.toPx()
+                        val cols = (size.width / step).toInt()
+                        val rows = (size.height / step).toInt()
+                        for (r in 1..rows) {
+                            for (c in 1..cols) {
+                                drawCircle(
+                                    color = Color.White.copy(alpha = 0.12f),
+                                    radius = 1.dp.toPx(),
+                                    center = Offset(c * step, r * step)
+                                )
+                            }
+                        }
+                    }
                 }
                 .border(
                     width = 1.6.dp,
                     brush = Brush.linearGradient(
-                        colors = if (glass.isGalacticCodex) {
-                            listOf(
+                        colors = when {
+                            glass.isNothingOs -> listOf(
+                                Color.White.copy(alpha = 0.92f),
+                                NothingCrimsonRed.copy(alpha = 0.90f),
+                                Color.White.copy(alpha = 0.55f),
+                                NothingCrimsonRed.copy(alpha = 0.85f)
+                            )
+                            glass.isGalacticCodex -> listOf(
                                 WarmGold.copy(alpha = 0.90f),
                                 Color.White.copy(alpha = 0.85f),
                                 CrystalTeal.copy(alpha = 0.75f),
                                 WarmGold.copy(alpha = 0.85f)
                             )
-                        } else {
-                            listOf(
+                            else -> listOf(
                                 Color.White.copy(alpha = 0.95f),
                                 LiquidCyan.copy(alpha = 0.7f),
                                 IridescentPink.copy(alpha = 0.65f),
@@ -771,32 +810,40 @@ private fun HeroOpenPdfCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 22.dp),
+                .padding(horizontal = 16.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // 3D Translucent Glass PDF Document Icon Cube
             Box(
                 modifier = Modifier
-                    .size(106.dp)
+                    .size(88.dp)
                     .rotate(-6f)
                     .shadow(
                         16.dp,
-                        RoundedCornerShape(26.dp),
-                        ambientColor = LiquidCyan,
-                        spotColor = if (glass.isGalacticCodex) WarmGold else IridescentPink
+                        RoundedCornerShape(24.dp),
+                        ambientColor = if (glass.isNothingOs) NothingCrimsonRed else LiquidCyan,
+                        spotColor = when {
+                            glass.isNothingOs -> Color.White
+                            glass.isGalacticCodex -> WarmGold
+                            else -> IridescentPink
+                        }
                     )
-                    .clip(RoundedCornerShape(26.dp))
+                    .clip(RoundedCornerShape(24.dp))
                     .background(
                         brush = Brush.linearGradient(
-                            colors = if (glass.isGalacticCodex) {
-                                listOf(
+                            colors = when {
+                                glass.isNothingOs -> listOf(
+                                    Color(0xFF1C2029).copy(alpha = 0.90f),
+                                    NothingCrimsonRed.copy(alpha = 0.82f),
+                                    Color(0xFF0E1117).copy(alpha = 0.92f)
+                                )
+                                glass.isGalacticCodex -> listOf(
                                     Color(0xFF0E3A47).copy(alpha = 0.82f),
                                     LiquidCyan.copy(alpha = 0.55f),
                                     CrystalTeal.copy(alpha = 0.65f),
                                     WarmGold.copy(alpha = 0.45f)
                                 )
-                            } else {
-                                listOf(
+                                else -> listOf(
                                     LiquidCyan.copy(alpha = 0.85f),
                                     ElectricBlue.copy(alpha = 0.85f),
                                     PrismPurple.copy(alpha = 0.9f),
@@ -806,25 +853,25 @@ private fun HeroOpenPdfCard(
                         )
                     )
                     .border(
-                        width = 2.dp,
+                        width = 1.8.dp,
                         brush = Brush.linearGradient(
-                            colors = if (glass.isGalacticCodex) {
-                                listOf(Color.White, LiquidCyan, WarmGold)
-                            } else {
-                                listOf(Color.White, LiquidCyan, Color.White)
+                            colors = when {
+                                glass.isNothingOs -> listOf(Color.White, NothingCrimsonRed, Color.White)
+                                glass.isGalacticCodex -> listOf(Color.White, LiquidCyan, WarmGold)
+                                else -> listOf(Color.White, LiquidCyan, Color.White)
                             }
                         ),
-                        shape = RoundedCornerShape(26.dp)
+                        shape = RoundedCornerShape(24.dp)
                     )
-                    .padding(14.dp),
+                    .padding(11.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White.copy(alpha = if (glass.isGalacticCodex) 0.18f else 0.28f))
-                        .border(1.2.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(16.dp)),
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.White.copy(alpha = if (glass.isGalacticCodex || glass.isNothingOs) 0.18f else 0.28f))
+                        .border(1.1.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(14.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -832,13 +879,14 @@ private fun HeroOpenPdfCard(
                             imageVector = Icons.Filled.PictureAsPdf,
                             contentDescription = "PDF Document",
                             tint = Color.White,
-                            modifier = Modifier.size(30.dp)
+                            modifier = Modifier.size(26.dp)
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = "PDF",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
+                                fontSize = 13.sp,
                                 letterSpacing = 1.sp
                             ),
                             color = Color.White
@@ -847,37 +895,42 @@ private fun HeroOpenPdfCard(
                 }
             }
 
-            Spacer(modifier = Modifier.width(18.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.hero_badge),
+                    text = if (glass.isNothingOs) "NOTHING // GLYPH READER" else stringResource(R.string.hero_badge),
                     style = MaterialTheme.typography.labelSmall.copy(
-                        letterSpacing = 1.6.sp,
-                        fontWeight = FontWeight.Bold
+                        letterSpacing = 1.4.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp
                     ),
-                    color = Color.White.copy(alpha = 0.88f)
+                    color = if (glass.isNothingOs) NothingCrimsonRed else Color.White.copy(alpha = 0.88f)
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
-                    text = if (glass.isGalacticCodex) "Discover Your Codex" else stringResource(R.string.hero_title),
+                    text = when {
+                        glass.isNothingOs -> "OPEN DOCUMENT [PDF]"
+                        glass.isGalacticCodex -> "Discover Your Codex"
+                        else -> stringResource(R.string.hero_title)
+                    },
                     style = MaterialTheme.typography.headlineLarge.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = if (glass.isGalacticCodex) 22.sp else 25.sp
+                        fontSize = if (glass.isGalacticCodex || glass.isNothingOs) 19.sp else 22.sp
                     ),
                     color = Color.White
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
-                    text = if (glass.isGalacticCodex) {
-                        "Explore, engage, or dissect your files."
-                    } else {
-                        stringResource(R.string.hero_subtitle)
+                    text = when {
+                        glass.isNothingOs -> "Smoked liquid glass • Dot-matrix precision rendering."
+                        glass.isGalacticCodex -> "Explore, engage, or dissect your files."
+                        else -> stringResource(R.string.hero_subtitle)
                     },
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
                     color = Color.White.copy(alpha = 0.92f)
                 )
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Frosted Glass Pill Button "Open File ->"
                 Row(
@@ -885,13 +938,16 @@ private fun HeroOpenPdfCard(
                         .clip(RoundedCornerShape(50))
                         .background(
                             brush = Brush.horizontalGradient(
-                                colors = if (glass.isGalacticCodex) {
-                                    listOf(
+                                colors = when {
+                                    glass.isNothingOs -> listOf(
+                                        NothingCrimsonRed.copy(alpha = 0.88f),
+                                        Color(0xFF1F2430).copy(alpha = 0.85f)
+                                    )
+                                    glass.isGalacticCodex -> listOf(
                                         Color(0xFF1E293B).copy(alpha = 0.68f),
                                         LiquidCyan.copy(alpha = 0.52f)
                                     )
-                                } else {
-                                    listOf(
+                                    else -> listOf(
                                         Color.White.copy(alpha = 0.34f),
                                         LiquidCyan.copy(alpha = 0.35f)
                                     )
@@ -901,7 +957,11 @@ private fun HeroOpenPdfCard(
                         .border(
                             width = 1.3.dp,
                             brush = Brush.horizontalGradient(
-                                colors = listOf(Color.White.copy(alpha = 0.90f), LiquidCyan.copy(alpha = 0.85f))
+                                colors = if (glass.isNothingOs) {
+                                    listOf(Color.White.copy(alpha = 0.95f), NothingCrimsonRed.copy(alpha = 0.90f))
+                                } else {
+                                    listOf(Color.White.copy(alpha = 0.90f), LiquidCyan.copy(alpha = 0.85f))
+                                }
                             ),
                             shape = RoundedCornerShape(50)
                         )
@@ -1174,40 +1234,42 @@ fun RecentPdfGlassRow(
                         tint = glass.textSecondary
                     )
                 }
-                DropdownMenu(
+                LiquidGlassDropdownMenu(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false }
                 ) {
-                    DropdownMenuItem(
-                        text = { Text("Open PDF") },
+                    LiquidGlassDropdownMenuItem(
+                        text = "Open PDF",
                         onClick = {
                             menuExpanded = false
                             onClick()
                         }
                     )
-                    DropdownMenuItem(
-                        text = { Text(if (doc.isFavorite) "Remove Favorite" else "Add to Favorites") },
+                    LiquidGlassDropdownMenuItem(
+                        text = if (doc.isFavorite) "Remove Favorite" else "Add to Favorites",
                         onClick = {
                             menuExpanded = false
                             onFavoriteToggle()
                         }
                     )
-                    DropdownMenuItem(
-                        text = { Text("Duplicate") },
+                    LiquidGlassDropdownMenuItem(
+                        text = "Duplicate",
                         onClick = {
                             menuExpanded = false
                             onDuplicate()
                         }
                     )
-                    DropdownMenuItem(
-                        text = { Text("Share") },
+                    LiquidGlassDropdownMenuItem(
+                        text = "Share",
                         onClick = {
                             menuExpanded = false
                             onShare()
                         }
                     )
-                    DropdownMenuItem(
-                        text = { Text("Delete", color = LiquidMagenta) },
+                    LiquidGlassDropdownMenuItem(
+                        text = "Delete",
+                        textColor = LiquidMagenta,
+                        showDivider = false,
                         onClick = {
                             menuExpanded = false
                             onDelete()
@@ -1230,9 +1292,9 @@ private fun SnapchatStyleStreakButton(
 
     Row(
         modifier = modifier
-            .height(44.dp)
+            .height(36.dp)
             .shadow(
-                elevation = 10.dp,
+                elevation = 8.dp,
                 shape = pillShape,
                 ambientColor = SolarAmber.copy(alpha = 0.45f),
                 spotColor = Color(0xFFFF5722).copy(alpha = 0.45f)
@@ -1256,7 +1318,7 @@ private fun SnapchatStyleStreakButton(
                 }
             )
             .border(
-                width = 1.3.dp,
+                width = 1.2.dp,
                 brush = Brush.linearGradient(
                     colors = listOf(
                         SolarAmber.copy(alpha = 0.90f),
@@ -1267,20 +1329,20 @@ private fun SnapchatStyleStreakButton(
                 shape = pillShape
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 13.dp),
+            .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
         Text(
             text = "\uD83D\uDD25",
-            fontSize = 17.sp
+            fontSize = 14.sp
         )
-        Spacer(modifier = Modifier.width(5.dp))
+        Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = "$streakCount",
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.ExtraBold,
-                fontSize = 16.sp,
+                fontSize = 14.sp,
                 letterSpacing = (-0.2).sp
             ),
             color = if (glass.isDark || glass.isGalacticCodex) Color.White else Color(0xFF1E293B)

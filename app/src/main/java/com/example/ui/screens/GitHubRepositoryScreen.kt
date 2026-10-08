@@ -5,12 +5,14 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -40,12 +42,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -61,10 +65,8 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LocalOffer
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
@@ -101,13 +103,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.data.PaperflowGitHubRepoData
 import com.example.data.RepoCommitEntry
 import com.example.data.RepoFileNode
@@ -123,7 +128,7 @@ import com.example.ui.theme.WarmGold
 private enum class GitHubTopTab(val label: String, val icon: ImageVector, val badgeCount: Int? = null) {
     CODE("Code", Icons.Filled.Code),
     ISSUES("Issues", Icons.Filled.BugReport, 2),
-    PULL_REQUESTS("Pull requests", Icons.Filled.CallSplit, 1),
+    PULL_REQUESTS("Pull requests", Icons.AutoMirrored.Filled.CallSplit, 1),
     ACTIONS("Actions", Icons.Filled.PlayArrow),
     SECURITY("Security", Icons.Filled.Security),
     INSIGHTS("Insights", Icons.Filled.Info)
@@ -337,7 +342,7 @@ fun GitHubRepositoryScreen(
                                     try {
                                         val intent = Intent(
                                             Intent.ACTION_VIEW,
-                                            Uri.parse(PaperflowGitHubRepoData.REPO_URL)
+                                            PaperflowGitHubRepoData.REPO_URL.toUri()
                                         ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                         context.startActivity(intent)
                                     } catch (_: Exception) {
@@ -350,7 +355,7 @@ fun GitHubRepositoryScreen(
                                     .border(1.dp, ghBorderColor, RoundedCornerShape(8.dp))
                             ) {
                                 Icon(
-                                    imageVector = Icons.Filled.OpenInNew,
+                                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                                     contentDescription = "Open in Browser",
                                     tint = ghTextSecondary,
                                     modifier = Modifier.size(17.dp)
@@ -370,7 +375,7 @@ fun GitHubRepositoryScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.MenuBook,
+                                imageVector = Icons.AutoMirrored.Filled.MenuBook,
                                 contentDescription = null,
                                 tint = ghTextSecondary,
                                 modifier = Modifier.size(18.dp)
@@ -475,7 +480,7 @@ fun GitHubRepositoryScreen(
 
                             // Fork button
                             GitHubHeaderActionPill(
-                                icon = Icons.Filled.CallSplit,
+                                icon = Icons.AutoMirrored.Filled.CallSplit,
                                 iconTint = ghTextSecondary,
                                 label = "Fork",
                                 count = forkCount.toString(),
@@ -1265,7 +1270,7 @@ fun GitHubRepositoryScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    imageVector = Icons.Filled.MenuBook,
+                                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
                                     contentDescription = null,
                                     tint = if (isReadmeActive) ghTextPrimary else ghTextSecondary,
                                     modifier = Modifier.size(16.dp)
@@ -2111,6 +2116,93 @@ private fun PaperflowReadmeRichRender(
 
         HorizontalDivider(thickness = 1.dp, color = ghBorderColor)
 
+        // App Interface & Visual Showcase Photos inside README.md
+        Text(
+            text = "📸 App Interface & Visual Showcase",
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
+            ),
+            color = ghTextPrimary
+        )
+
+        Text(
+            text = "Explore Paperflow's multi-panel Apple VisionOS Liquid Glass interface, Galactic Scholar (Cosmic Codex) photo edition, native PDF annotation studio, and draggable floating AI assistant.",
+            style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp),
+            color = ghTextSecondary
+        )
+
+        // Hero Multi-Panel App Interface Showcase Banner
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(ghSurfaceBg)
+                .border(1.dp, ghBorderColor, RoundedCornerShape(10.dp))
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.img_app_interface_showcase_1791433886976),
+                contentDescription = "Paperflow App Interface Showcase — Home Workspace, PDF Reader & Annotation Studio, Offline PDF Toolkit & Floating AI Assistant",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(195.dp),
+                contentScale = ContentScale.Crop
+            )
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = "Paperflow Multi-Panel Interface Overview",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = ghTextPrimary
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Left: Home Workspace & Daily Streak • Center: High-Resolution PDF Reader & Annotation Studio • Right: 19 Offline PDF Tools & Draggable Liquid-Glass AI Assistant",
+                    style = MaterialTheme.typography.labelSmall.copy(lineHeight = 16.sp),
+                    color = ghTextSecondary
+                )
+            }
+        }
+
+        // Horizontal Scrollable Photo Gallery of Visual Editions & Interface Modules
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ReadmePhotoGalleryCard(
+                drawableRes = R.drawable.img_hero_liquid_glass_1791391701805,
+                title = "VisionOS Liquid Glass Workspace",
+                caption = "Frosted translucent glass layers, dynamic cyan/violet refraction & safe-area navigation capsule.",
+                ghSurfaceBg = ghSurfaceBg,
+                ghBorderColor = ghBorderColor,
+                ghTextPrimary = ghTextPrimary,
+                ghTextSecondary = ghTextSecondary
+            )
+
+            ReadmePhotoGalleryCard(
+                drawableRes = R.drawable.img_hero_galactic_codex_1791427754468,
+                title = "Galactic Scholar (Cosmic Codex)",
+                caption = "Deep-space obsidian & warm gold illumination photo theme configurable in Settings.",
+                ghSurfaceBg = ghSurfaceBg,
+                ghBorderColor = ghBorderColor,
+                ghTextPrimary = ghTextPrimary,
+                ghTextSecondary = ghTextSecondary
+            )
+
+            ReadmePhotoGalleryCard(
+                drawableRes = R.drawable.img_pdf_3d_badge_1791391714001,
+                title = "Native On-Device PDF Engine",
+                caption = "Hardware-accelerated PdfRenderer & 19 offline PDF utilities with zero cloud uploads.",
+                ghSurfaceBg = ghSurfaceBg,
+                ghBorderColor = ghBorderColor,
+                ghTextPrimary = ghTextPrimary,
+                ghTextSecondary = ghTextSecondary
+            )
+        }
+
+        HorizontalDivider(thickness = 1.dp, color = ghBorderColor)
+
         // Overview Section
         Text(
             text = "Overview",
@@ -2223,6 +2315,54 @@ private fun PaperflowReadmeRichRender(
                     modifier = Modifier.size(15.dp)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ReadmePhotoGalleryCard(
+    drawableRes: Int,
+    title: String,
+    caption: String,
+    ghSurfaceBg: Color,
+    ghBorderColor: Color,
+    ghTextPrimary: Color,
+    ghTextSecondary: Color
+) {
+    Column(
+        modifier = Modifier
+            .width(248.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(ghSurfaceBg)
+            .border(1.dp, ghBorderColor, RoundedCornerShape(10.dp))
+    ) {
+        Image(
+            painter = painterResource(id = drawableRes),
+            contentDescription = title,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(132.dp),
+            contentScale = ContentScale.Crop
+        )
+        Column(modifier = Modifier.padding(10.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                color = ghTextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = caption,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
+                ),
+                color = ghTextSecondary,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
