@@ -173,8 +173,8 @@ class GlassPaperViewModel(
             repository.removeLegacyDemoFilesIfPresent()
             val checkIn = settingsDataStore.registerDailyCheckInIfNeeded()
             val elapsed = System.currentTimeMillis() - startMs
-            if (elapsed < 950L) {
-                kotlinx.coroutines.delay(950L - elapsed)
+            if (elapsed < 380L) {
+                kotlinx.coroutines.delay(380L - elapsed)
             }
             _isAppStartingLoading.value = false
             if (checkIn != null) {
@@ -194,7 +194,7 @@ class GlassPaperViewModel(
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 repository.removeLegacyDemoFilesIfPresent()
             }
-            kotlinx.coroutines.delay(980L)
+            kotlinx.coroutines.delay(480L)
             _isPageRefreshing.value = false
         }
     }
@@ -968,6 +968,112 @@ class GlassPaperViewModel(
                 }
             }
             _toolState.value = ToolOperationState(isRunning = false, extractedText = text)
+        }
+    }
+
+    /**
+     * Translates a PDF document from any source language to any target language (all pages or selected range),
+     * generates a new multi-script Unicode PDF saved in the Paperflow Library, and also provides the
+     * full translated text preview for instant reading, copying, or saving to Study Notes.
+     */
+    fun executeTranslatePdf(
+        doc: PdfDocumentEntity,
+        sourceLanguage: String,
+        targetLanguage: String,
+        selectedZeroBasedPages: List<Int>,
+        includeOriginalBilingual: Boolean,
+        customOutputFilename: String = ""
+    ) {
+        val pagesToTranslate = if (selectedZeroBasedPages.isNotEmpty()) {
+            selectedZeroBasedPages.sorted()
+        } else {
+            (0 until doc.pageCount.coerceAtLeast(1)).toList()
+        }
+
+        viewModelScope.launch {
+            _toolState.value = ToolOperationState(
+                isRunning = true,
+                progressText = "Extracting text from ${doc.title} (${pagesToTranslate.size} page(s))..."
+            )
+
+            val rawExtractedPages = PdfEngine.extractRealTextFromPdf(appContext, doc.filePath)
+            val fallbackPages = if (doc.searchableText.isNotBlank()) {
+                doc.searchableText.split("||PAGE||")
+            } else emptyList()
+
+            val translatedPageBlocks = mutableListOf<String>()
+
+            for ((idx, pageIndex) in pagesToTranslate.withIndex()) {
+                _toolState.value = ToolOperationState(
+                    isRunning = true,
+                    progressText = "Translating Page ${pageIndex + 1} of ${doc.pageCount} ($sourceLanguage → $targetLanguage) [${idx + 1}/${pagesToTranslate.size}]..."
+                )
+
+                val pageSourceText = rawExtractedPages.getOrNull(pageIndex)?.takeIf { it.isNotBlank() }
+                    ?: fallbackPages.getOrNull(pageIndex).orEmpty()
+
+                val translatedPage = PaperflowAiService.translatePdfPageWithAi(
+                    context = appContext,
+                    documentPath = doc.filePath,
+                    documentTitle = doc.title,
+                    pageIndex = pageIndex,
+                    totalPages = doc.pageCount,
+                    extractedPageText = pageSourceText,
+                    sourceLanguage = sourceLanguage,
+                    targetLanguage = targetLanguage,
+                    includeOriginalBilingual = includeOriginalBilingual
+                )
+
+                translatedPageBlocks.add(translatedPage)
+            }
+
+            _toolState.value = ToolOperationState(
+                isRunning = true,
+                progressText = "Building translated $targetLanguage PDF document..."
+            )
+
+            val defaultBaseName = "${doc.title.removeSuffix(".pdf")}-${targetLanguage.substringBefore(" ").lowercase()}"
+            val cleanOutputTitle = customOutputFilename.ifBlank { defaultBaseName }
+
+            val outFile = PdfEngine.createTranslatedPdfDocument(
+                context = appContext,
+                sourceTitle = doc.title,
+                sourceLanguage = sourceLanguage,
+                targetLanguage = targetLanguage,
+                translatedPages = translatedPageBlocks,
+                customOutputFilename = cleanOutputTitle
+            )
+
+            val previewText = translatedPageBlocks.mapIndexed { i, block ->
+                val srcPageNum = pagesToTranslate.getOrNull(i)?.plus(1) ?: (i + 1)
+                "--- PAGE $srcPageNum ($sourceLanguage → $targetLanguage) ---\n$block"
+            }.joinToString("\n\n")
+
+            if (outFile != null) {
+                val finalPdfTitle = if (cleanOutputTitle.endsWith(".pdf", ignoreCase = true)) {
+                    cleanOutputTitle
+                } else {
+                    "$cleanOutputTitle.pdf"
+                }
+                val newDoc = repository.registerGeneratedPdfFile(
+                    file = outFile,
+                    title = finalPdfTitle,
+                    categoryTag = "Translated ($targetLanguage)",
+                    accentHex = 0xFF06B6D4,
+                    searchableText = translatedPageBlocks.joinToString("||PAGE||")
+                )
+                _toolState.value = ToolOperationState(
+                    isRunning = false,
+                    resultDocument = newDoc,
+                    extractedText = previewText
+                )
+            } else {
+                _toolState.value = ToolOperationState(
+                    isRunning = false,
+                    extractedText = previewText,
+                    errorMessage = "Translated text is ready below, but PDF file export encountered an issue."
+                )
+            }
         }
     }
 

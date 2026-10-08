@@ -16,11 +16,21 @@ import kotlin.math.roundToLong
 
 private val Context.dataStore by preferencesDataStore(name = "glasspaper_settings")
 
-enum class AppThemeOption { LIGHT, DARK, SYSTEM, GALACTIC_CODEX, NOTHING_OS_GLASS }
+enum class AppThemeOption {
+    LIGHT,
+    DARK,
+    SYSTEM,
+    GALACTIC_CODEX,
+    NOTHING_OS_GLASS,
+    DESERT_DUNE_CLAY,
+    ENCHANTED_FOREST_CODEX
+}
 enum class AppStyleOption(val label: String) {
     NOTHING_UI("Nothing UI"),
     APPLE_UI("Apple UI"),
-    JOURNEY_AWAITS_UI("Journey Awaits UI")
+    JOURNEY_AWAITS_UI("Journey Awaits UI"),
+    DESERT_DUNE_CLAY_UI("Desert Dune Clay UI"),
+    ENCHANTED_FOREST_UI("Enchanted Forest UI")
 }
 enum class ThemeModeOption(val label: String) {
     SYSTEM("System"),
@@ -113,6 +123,8 @@ class SettingsDataStore(private val context: Context) {
             ?: when (rawTheme) {
                 AppThemeOption.NOTHING_OS_GLASS -> AppStyleOption.NOTHING_UI
                 AppThemeOption.GALACTIC_CODEX -> AppStyleOption.JOURNEY_AWAITS_UI
+                AppThemeOption.DESERT_DUNE_CLAY -> AppStyleOption.DESERT_DUNE_CLAY_UI
+                AppThemeOption.ENCHANTED_FOREST_CODEX -> AppStyleOption.ENCHANTED_FOREST_UI
                 else -> AppStyleOption.NOTHING_UI
             }
         val resolvedThemeMode = prefs[Keys.THEME_MODE]?.let { runCatching { ThemeModeOption.valueOf(it) }.getOrNull() }
@@ -264,6 +276,14 @@ class SettingsDataStore(private val context: Context) {
                 AppThemeOption.GALACTIC_CODEX -> {
                     prefs[Keys.APP_STYLE] = AppStyleOption.JOURNEY_AWAITS_UI.name
                 }
+                AppThemeOption.DESERT_DUNE_CLAY -> {
+                    prefs[Keys.APP_STYLE] = AppStyleOption.DESERT_DUNE_CLAY_UI.name
+                    prefs[Keys.THEME_MODE] = ThemeModeOption.LIGHT.name
+                }
+                AppThemeOption.ENCHANTED_FOREST_CODEX -> {
+                    prefs[Keys.APP_STYLE] = AppStyleOption.ENCHANTED_FOREST_UI.name
+                    prefs[Keys.THEME_MODE] = ThemeModeOption.DARK.name
+                }
                 AppThemeOption.LIGHT -> {
                     prefs[Keys.APP_STYLE] = AppStyleOption.APPLE_UI.name
                     prefs[Keys.THEME_MODE] = ThemeModeOption.LIGHT.name
@@ -287,6 +307,14 @@ class SettingsDataStore(private val context: Context) {
             prefs[Keys.APP_THEME] = when (style) {
                 AppStyleOption.NOTHING_UI -> AppThemeOption.NOTHING_OS_GLASS.name
                 AppStyleOption.JOURNEY_AWAITS_UI -> AppThemeOption.GALACTIC_CODEX.name
+                AppStyleOption.DESERT_DUNE_CLAY_UI -> {
+                    prefs[Keys.THEME_MODE] = ThemeModeOption.LIGHT.name
+                    AppThemeOption.DESERT_DUNE_CLAY.name
+                }
+                AppStyleOption.ENCHANTED_FOREST_UI -> {
+                    prefs[Keys.THEME_MODE] = ThemeModeOption.DARK.name
+                    AppThemeOption.ENCHANTED_FOREST_CODEX.name
+                }
                 AppStyleOption.APPLE_UI -> when (currentMode) {
                     ThemeModeOption.LIGHT -> AppThemeOption.LIGHT.name
                     ThemeModeOption.DARK -> AppThemeOption.DARK.name

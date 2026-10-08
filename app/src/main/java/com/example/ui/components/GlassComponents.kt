@@ -101,8 +101,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.MainTab
 import com.example.ui.theme.CrystalTeal
+import com.example.ui.theme.DesertClayCardElevated
+import com.example.ui.theme.DesertClayCardSurface
+import com.example.ui.theme.DesertClayCocoaBrown
+import com.example.ui.theme.DesertClayCreamBase
+import com.example.ui.theme.DesertClayDeepTerracotta
+import com.example.ui.theme.DesertClayMutedBrown
+import com.example.ui.theme.DesertClayPeachTerracotta
+import com.example.ui.theme.DesertClaySoftApricot
+import com.example.ui.theme.DesertClayWarmSand
 import com.example.ui.theme.ElectricBlue
 import com.example.ui.theme.EmeraldGreen
+import com.example.ui.theme.ForestCanopyDarkMoss
+import com.example.ui.theme.ForestCanopyDeepGreen
+import com.example.ui.theme.ForestCopperBark
+import com.example.ui.theme.ForestDeepMossText
+import com.example.ui.theme.ForestGoldenFern
+import com.example.ui.theme.ForestParchmentLight
+import com.example.ui.theme.ForestParchmentWarm
+import com.example.ui.theme.ForestSageGreen
 import com.example.ui.theme.IridescentPink
 import com.example.ui.theme.LiquidCyan
 import com.example.ui.theme.LocalGlassColors
@@ -248,6 +265,62 @@ fun LiquidAmbientBackground(
                     radius = w * 0.58f
                 )
 
+                val desertClayBgBrush = Brush.verticalGradient(
+                    colors = listOf(
+                        DesertClayCreamBase,
+                        Color(0xFFF3E4D5),
+                        DesertClayWarmSand,
+                        Color(0xFFEDD9C6),
+                        DesertClayCreamBase
+                    )
+                )
+                val desertWarmSunOrb = Brush.radialGradient(
+                    colors = listOf(
+                        DesertClayPeachTerracotta.copy(alpha = 0.20f),
+                        DesertClaySoftApricot.copy(alpha = 0.14f),
+                        Color.Transparent
+                    ),
+                    center = Offset(w * 0.78f, h * 0.18f),
+                    radius = w * 0.72f
+                )
+                val desertIvoryOrb = Brush.radialGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.75f),
+                        DesertClayCardSurface.copy(alpha = 0.35f),
+                        Color.Transparent
+                    ),
+                    center = Offset(w * 0.22f, h * 0.12f),
+                    radius = w * 0.65f
+                )
+
+                val forestCanopyBgBrush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF061B14),
+                        ForestCanopyDeepGreen,
+                        ForestCanopyDarkMoss,
+                        Color(0xFF0A281E),
+                        Color(0xFF051812)
+                    )
+                )
+                val forestSunbeamOrb = Brush.radialGradient(
+                    colors = listOf(
+                        ForestGoldenFern.copy(alpha = 0.22f),
+                        ForestSageGreen.copy(alpha = 0.16f),
+                        Color.Transparent
+                    ),
+                    center = Offset(w * 0.52f, h * 0.22f),
+                    radius = w * 0.75f
+                )
+                val forestMossOrb = Brush.radialGradient(
+                    colors = listOf(
+                        ForestSageGreen.copy(alpha = 0.20f),
+                        ForestCopperBark.copy(alpha = 0.10f),
+                        Color.Transparent
+                    ),
+                    center = Offset(w * 0.80f, h * 0.68f),
+                    radius = w * 0.68f
+                )
+
                 val starRBig = 2.0.dp.toPx()
                 val starRMed = 1.25.dp.toPx()
                 val starRSmall = 0.85.dp.toPx()
@@ -256,7 +329,43 @@ fun LiquidAmbientBackground(
                 val glyphStroke = Stroke(width = 1.4.dp.toPx(), cap = StrokeCap.Round)
 
                 onDrawBehind {
-                    if (glass.isNothingOs) {
+                    if (glass.isDesertDuneClay) {
+                        drawRect(brush = desertClayBgBrush)
+                        drawCircle(brush = desertWarmSunOrb, radius = w * 0.72f, center = Offset(w * 0.78f, h * 0.18f))
+                        drawCircle(brush = desertIvoryOrb, radius = w * 0.65f, center = Offset(w * 0.22f, h * 0.12f))
+
+                        // Sculpted warm sandstone dune contour waves along edges matching Screenshot 1
+                        for (waveIdx in 0..3) {
+                            val dunePath = Path()
+                            val yBase = h * (0.24f + waveIdx * 0.22f)
+                            dunePath.moveTo(0f, yBase)
+                            dunePath.cubicTo(
+                                w * 0.32f, yBase - 38.dp.toPx(),
+                                w * 0.68f, yBase + 42.dp.toPx(),
+                                w, yBase - 18.dp.toPx()
+                            )
+                            drawPath(
+                                path = dunePath,
+                                color = DesertClayPeachTerracotta.copy(alpha = 0.08f),
+                                style = Stroke(width = 28.dp.toPx(), cap = StrokeCap.Round)
+                            )
+                        }
+                    } else if (glass.isEnchantedForestCodex) {
+                        drawRect(brush = forestCanopyBgBrush)
+                        drawCircle(brush = forestSunbeamOrb, radius = w * 0.75f, center = Offset(w * 0.52f, h * 0.22f))
+                        drawCircle(brush = forestMossOrb, radius = w * 0.68f, center = Offset(w * 0.80f, h * 0.68f))
+
+                        // Subtle botanical fern & woodland leaf silhouettes around canopy borders matching Screenshot 2
+                        for (i in 0 until 18) {
+                            val lx = if (i % 2 == 0) (i * 17 % 28) / 100f * w else w - ((i * 19 % 28) / 100f * w)
+                            val ly = ((i * 53 + 7) % 100) / 100f * h
+                            drawCircle(
+                                color = if (i % 3 == 0) ForestGoldenFern.copy(alpha = 0.16f) else ForestSageGreen.copy(alpha = 0.14f),
+                                radius = (8 + (i % 4) * 5).dp.toPx(),
+                                center = Offset(lx, ly)
+                            )
+                        }
+                    } else if (glass.isNothingOs) {
                         drawRect(brush = nothingBgBrush)
                         drawCircle(brush = nothingCrimsonOrb, radius = w * 0.70f, center = Offset(w * 0.78f, h * 0.18f))
                         drawCircle(brush = nothingGlyphOrb, radius = w * 0.65f, center = Offset(w * 0.22f, h * 0.42f))
@@ -344,34 +453,53 @@ fun LiquidGlassPanel(
     val shape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
 
     val baseSurface = when {
+        glass.isDesertDuneClay -> DesertClayCardSurface.copy(alpha = 0.96f)
+        glass.isEnchantedForestCodex -> Color(0xFF0E2F23).copy(alpha = 0.86f)
         glass.isNothingOs -> Color(0xFF10131A).copy(alpha = 0.74f)
         glass.isDark -> Color(0xFF172242).copy(alpha = 0.68f)
         else -> Color.White.copy(alpha = 0.56f)
     }
 
     val specularTop = when {
+        glass.isDesertDuneClay -> Color.White
+        glass.isEnchantedForestCodex -> ForestGoldenFern.copy(alpha = 0.35f)
         glass.isNothingOs -> Color.White.copy(alpha = 0.30f)
         glass.isDark -> Color.White.copy(alpha = 0.22f)
         else -> Color.White.copy(alpha = 0.88f)
     }
 
     val specularBottom = when {
+        glass.isDesertDuneClay -> DesertClaySoftApricot.copy(alpha = 0.45f)
+        glass.isEnchantedForestCodex -> ForestSageGreen.copy(alpha = 0.30f)
         glass.isNothingOs -> (if (tintColor != Color.Transparent) tintColor else NothingCrimsonRed).copy(alpha = 0.22f)
         glass.isDark -> tintColor.copy(alpha = 0.24f)
         else -> if (tintColor != Color.Transparent) tintColor.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.35f)
     }
 
-    val borderBrush = remember(glass.isDark, glass.isNothingOs, tintColor, borderAlpha) {
-        if (glass.isNothingOs) {
-            Brush.linearGradient(
+    val borderBrush = remember(glass.isDark, glass.isNothingOs, glass.isDesertDuneClay, glass.isEnchantedForestCodex, tintColor, borderAlpha) {
+        when {
+            glass.isDesertDuneClay -> Brush.linearGradient(
+                colors = listOf(
+                    Color.White,
+                    DesertClaySoftApricot.copy(alpha = 0.75f),
+                    Color.White.copy(alpha = 0.90f)
+                )
+            )
+            glass.isEnchantedForestCodex -> Brush.linearGradient(
+                colors = listOf(
+                    ForestSageGreen.copy(alpha = 0.75f * borderAlpha),
+                    ForestGoldenFern.copy(alpha = 0.55f * borderAlpha),
+                    ForestCopperBark.copy(alpha = 0.45f * borderAlpha)
+                )
+            )
+            glass.isNothingOs -> Brush.linearGradient(
                 colors = listOf(
                     Color.White.copy(alpha = 0.76f * borderAlpha),
                     NothingCrimsonRed.copy(alpha = 0.60f * borderAlpha),
                     Color.White.copy(alpha = 0.28f * borderAlpha)
                 )
             )
-        } else {
-            Brush.linearGradient(
+            else -> Brush.linearGradient(
                 colors = listOf(
                     Color.White.copy(alpha = if (glass.isDark) 0.52f * borderAlpha else 0.95f * borderAlpha),
                     if (tintColor != Color.Transparent) tintColor.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.35f),
@@ -381,17 +509,30 @@ fun LiquidGlassPanel(
         }
     }
 
-    val fillBrush = remember(glass.isDark, glass.isNothingOs, tintColor, baseSurface) {
-        if (glass.isNothingOs) {
-            Brush.linearGradient(
+    val fillBrush = remember(glass.isDark, glass.isNothingOs, glass.isDesertDuneClay, glass.isEnchantedForestCodex, tintColor, baseSurface) {
+        when {
+            glass.isDesertDuneClay -> Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFFFFFCF9),
+                    DesertClayCardSurface,
+                    DesertClayCardElevated
+                )
+            )
+            glass.isEnchantedForestCodex -> Brush.linearGradient(
+                colors = listOf(
+                    Color(0xFF12382A).copy(alpha = 0.88f),
+                    Color(0xFF0C2A1F).copy(alpha = 0.92f),
+                    Color(0xFF082017).copy(alpha = 0.94f)
+                )
+            )
+            glass.isNothingOs -> Brush.linearGradient(
                 colors = listOf(
                     Color(0xFF171A23).copy(alpha = 0.78f),
                     if (tintColor != Color.Transparent) tintColor.copy(alpha = 0.16f) else Color(0xFF11131A).copy(alpha = 0.76f),
                     Color(0xFF0A0C10).copy(alpha = 0.82f)
                 )
             )
-        } else {
-            Brush.linearGradient(
+            else -> Brush.linearGradient(
                 colors = listOf(
                     baseSurface,
                     if (tintColor != Color.Transparent) {
@@ -598,6 +739,8 @@ fun FloatingGlassNavigationBar(
 
     val activeAccentColor by animateColorAsState(
         targetValue = when {
+            glass.isDesertDuneClay -> DesertClayPeachTerracotta
+            glass.isEnchantedForestCodex -> ForestSageGreen
             glass.isNothingOs -> NothingCrimsonRed
             glass.isGalacticCodex -> WarmGold
             else -> when (currentTab) {
@@ -653,6 +796,14 @@ fun FloatingGlassNavigationBar(
                 .background(
                     brush = Brush.verticalGradient(
                         colors = when {
+                            glass.isDesertDuneClay -> listOf(
+                                Color(0xFFFDF8F3).copy(alpha = 0.96f),
+                                Color(0xFFEEE0D3).copy(alpha = 0.98f)
+                            )
+                            glass.isEnchantedForestCodex -> listOf(
+                                ForestParchmentLight.copy(alpha = 0.96f),
+                                ForestParchmentWarm.copy(alpha = 0.96f)
+                            )
                             glass.isNothingOs -> listOf(
                                 Color(0xFF141720).copy(alpha = 0.84f),
                                 Color(0xFF07080B).copy(alpha = 0.90f)
@@ -877,6 +1028,10 @@ fun FloatingGlassNavigationBar(
 
                         val itemTint by animateColorAsState(
                             targetValue = when {
+                                glass.isDesertDuneClay && isSelected -> DesertClayCocoaBrown
+                                glass.isDesertDuneClay -> DesertClayMutedBrown
+                                glass.isEnchantedForestCodex && isSelected -> ForestDeepMossText
+                                glass.isEnchantedForestCodex -> if (index == 1) ForestCopperBark else ForestSageGreen
                                 glass.isGalacticCodex && isSelected -> Color(0xFFFFFBEB)
                                 glass.isGalacticCodex -> Color(0xFFFDE68A).copy(alpha = 0.88f)
                                 isSelected && glass.isDark -> Color.White
@@ -892,36 +1047,66 @@ fun FloatingGlassNavigationBar(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
-                                .padding(horizontal = if (glass.isGalacticCodex) 4.dp else 0.dp, vertical = if (glass.isGalacticCodex) 2.dp else 0.dp)
+                                .padding(
+                                    horizontal = if (glass.isGalacticCodex || glass.isDesertDuneClay) 4.dp else 0.dp,
+                                    vertical = if (glass.isGalacticCodex || glass.isDesertDuneClay) 2.dp else 0.dp
+                                )
                                 .graphicsLayer {
                                     scaleX = pressScale
                                     scaleY = pressScale
                                 }
-                                .clip(if (glass.isGalacticCodex) RoundedCornerShape(18.dp) else innerSelectionShape)
+                                .clip(
+                                    if (glass.isGalacticCodex || glass.isDesertDuneClay) RoundedCornerShape(18.dp)
+                                    else innerSelectionShape
+                                )
                                 .then(
-                                    if (glass.isGalacticCodex) {
-                                        Modifier
-                                            .background(
-                                                brush = Brush.verticalGradient(
-                                                    colors = listOf(
-                                                        Color(0xFF5C4424).copy(alpha = if (isSelected) 0.78f else 0.52f),
-                                                        Color(0xFF2B1E10).copy(alpha = if (isSelected) 0.88f else 0.68f)
+                                    when {
+                                        glass.isDesertDuneClay -> {
+                                            Modifier
+                                                .background(
+                                                    brush = Brush.verticalGradient(
+                                                        colors = if (isSelected) {
+                                                            listOf(
+                                                                DesertClaySoftApricot,
+                                                                DesertClayPeachTerracotta
+                                                            )
+                                                        } else {
+                                                            listOf(
+                                                                Color(0xFFFDF8F3),
+                                                                Color(0xFFEDE0D4)
+                                                            )
+                                                        }
                                                     )
                                                 )
-                                            )
-                                            .border(
-                                                width = if (isSelected) 1.5.dp else 1.dp,
-                                                brush = Brush.verticalGradient(
-                                                    colors = listOf(
-                                                         Color(0xFFFFFBEB).copy(alpha = if (isSelected) 0.95f else 0.65f),
-                                                        WarmGold.copy(alpha = if (isSelected) 0.85f else 0.45f),
-                                                        Color(0xFF92400E).copy(alpha = 0.55f)
+                                                .border(
+                                                    width = 1.3.dp,
+                                                    color = if (isSelected) Color.White.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.75f),
+                                                    shape = RoundedCornerShape(18.dp)
+                                                )
+                                        }
+                                        glass.isGalacticCodex -> {
+                                            Modifier
+                                                .background(
+                                                    brush = Brush.verticalGradient(
+                                                        colors = listOf(
+                                                            Color(0xFF5C4424).copy(alpha = if (isSelected) 0.78f else 0.52f),
+                                                            Color(0xFF2B1E10).copy(alpha = if (isSelected) 0.88f else 0.68f)
+                                                        )
                                                     )
-                                                ),
-                                                shape = RoundedCornerShape(18.dp)
-                                            )
-                                    } else {
-                                        Modifier
+                                                )
+                                                .border(
+                                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                                    brush = Brush.verticalGradient(
+                                                        colors = listOf(
+                                                            Color(0xFFFFFBEB).copy(alpha = if (isSelected) 0.95f else 0.65f),
+                                                            WarmGold.copy(alpha = if (isSelected) 0.85f else 0.45f),
+                                                            Color(0xFF92400E).copy(alpha = 0.55f)
+                                                        )
+                                                    ),
+                                                    shape = RoundedCornerShape(18.dp)
+                                                )
+                                        }
+                                        else -> Modifier
                                     }
                                 )
                                 .testTag(item.testTag)
@@ -1246,26 +1431,67 @@ fun PlayStoreOrganicBlobSpinner(
 }
 
 /**
- * Full-screen transparent Android / Play Store system loading overlay
- * with smooth fade + scale exit transition when loading completes while keeping
- * the underlying app UI, Android status bar, and system UI naturally visible.
+ * Full-screen transparent Android / Google Play Store–style system loading & pull-to-refresh overlay.
+ *
+ * - Keeps a 100% transparent background (`Color.Transparent`) so the underlying app UI,
+ *   Android status bar, and navigation bar remain completely visible.
+ * - Shows interactive pull-down feedback (live scaling & rotation of the 10-lobed `#8EC5FF` organic
+ *   scalloped blob as the user drags downward from the top of any screen).
+ * - Transitions smoothly into the centered spinning 10-lobed Play Store blob during active refresh,
+ *   startup, or tool execution, then fades + scales out cleanly when complete.
  */
 @Composable
 fun PlayStoreSystemLoadingOverlay(
     visible: Boolean,
+    pullProgress: Float = 0f,
     modifier: Modifier = Modifier
 ) {
+    val clampedPull = pullProgress.coerceIn(0f, 1.35f)
+    val showPullPreview = !visible && clampedPull > 0.04f
+
+    // 1. Live interactive pull-down preview (follows finger drag before release/trigger)
+    if (showPullPreview) {
+        val pullAlpha = (clampedPull / 0.85f).coerceIn(0f, 1f)
+        val pullScale = (0.45f + 0.60f * clampedPull).coerceIn(0.45f, 1.08f)
+        val pullOffsetDp = (28f + 64f * clampedPull).dp
+
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color.Transparent),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(top = pullOffsetDp)
+                    .graphicsLayer {
+                        alpha = pullAlpha
+                        scaleX = pullScale
+                        scaleY = pullScale
+                        rotationZ = clampedPull * 160f
+                    }
+            ) {
+                PlayStoreOrganicBlobSpinner(
+                    indicatorSize = 38.dp,
+                    blobColor = Color(0xFF8EC5FF),
+                    lobes = 10
+                )
+            }
+        }
+    }
+
+    // 2. Active Google Play Store–style transparent loading & refresh state
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(animationSpec = tween(durationMillis = 180)) +
+        enter = fadeIn(animationSpec = tween(durationMillis = 150)) +
             scaleIn(
-                initialScale = 0.88f,
-                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+                initialScale = 0.82f,
+                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing)
             ),
-        exit = fadeOut(animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing)) +
+        exit = fadeOut(animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)) +
             scaleOut(
-                targetScale = 0.78f,
-                animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing)
+                targetScale = 0.76f,
+                animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
             ),
         modifier = modifier.fillMaxSize()
     ) {
@@ -1273,16 +1499,11 @@ fun PlayStoreSystemLoadingOverlay(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Transparent)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
                 .testTag("play_store_loading_screen"),
             contentAlignment = Alignment.Center
         ) {
             PlayStoreOrganicBlobSpinner(
-                indicatorSize = 38.dp,
+                indicatorSize = 40.dp,
                 blobColor = Color(0xFF8EC5FF),
                 lobes = 10
             )

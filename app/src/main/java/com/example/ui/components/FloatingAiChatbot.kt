@@ -42,14 +42,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -489,18 +492,18 @@ fun FloatingAiChatbotOverlay(
 
         AnimatedVisibility(
             visible = isChatOpen,
-            enter = fadeIn(tween(220)) + scaleIn(
-                initialScale = 0.72f,
+            enter = fadeIn(tween(140)) + scaleIn(
+                initialScale = 0.86f,
                 transformOrigin = TransformOrigin(panelOriginX, panelOriginY),
                 animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    dampingRatio = Spring.DampingRatioNoBouncy,
                     stiffness = Spring.StiffnessMedium
                 )
             ),
-            exit = fadeOut(tween(180)) + scaleOut(
-                targetScale = 0.72f,
+            exit = fadeOut(tween(120)) + scaleOut(
+                targetScale = 0.86f,
                 transformOrigin = TransformOrigin(panelOriginX, panelOriginY),
-                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+                animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing)
             ),
             modifier = Modifier.fillMaxSize()
         ) {
@@ -512,12 +515,14 @@ fun FloatingAiChatbotOverlay(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.42f))
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onCloseChat
                     ),
-                contentAlignment = if (isChatMaximized) Alignment.Center else Alignment.BottomCenter
+                contentAlignment = Alignment.BottomCenter
             ) {
                 ExpandableLiquidGlassAiChatWindow(
                     messages = messages,
@@ -776,12 +781,15 @@ private fun ExpandableLiquidGlassAiChatWindow(
         }
     }
 
+    val density = LocalDensity.current
+    val isImeVisible = WindowInsets.ime.getBottom(density) > 0
+
     val panelModifier = if (isMaximized) {
         modifier
             .fillMaxSize()
             .padding(
-                top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 8.dp,
-                bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 8.dp,
+                top = 6.dp,
+                bottom = if (isImeVisible) 4.dp else 8.dp,
                 start = 10.dp,
                 end = 10.dp
             )
@@ -789,17 +797,17 @@ private fun ExpandableLiquidGlassAiChatWindow(
         modifier
             .widthIn(max = 560.dp)
             .fillMaxWidth()
-            .fillMaxHeight(0.78f)
+            .fillMaxHeight(if (isImeVisible) 0.96f else 0.78f)
             .padding(
-                start = 12.dp,
-                end = 12.dp,
-                bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 12.dp
+                top = 8.dp,
+                start = 10.dp,
+                end = 10.dp,
+                bottom = if (isImeVisible) 4.dp else 12.dp
             )
     }
 
     Surface(
         modifier = panelModifier
-            .imePadding()
             .shadow(
                 elevation = 28.dp,
                 shape = RoundedCornerShape(30.dp),
@@ -1357,9 +1365,15 @@ private fun FormattedAiText(
     rawText: String,
     textColor: Color
 ) {
-    val annotated = remember(rawText, textColor) {
+    val cleanedRawText = remember(rawText) {
+        rawText
+            .substringBefore("\n\n---\n*⚡ Local Document Intelligence active")
+            .substringBefore("*⚡ Local Document Intelligence active")
+            .trim()
+    }
+    val annotated = remember(cleanedRawText, textColor) {
         buildAnnotatedString {
-            val lines = rawText.lines()
+            val lines = cleanedRawText.lines()
             lines.forEachIndexed { idx, line ->
                 val trimmed = line.trimStart()
                 if (trimmed.startsWith("### ")) {

@@ -16,6 +16,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -23,6 +24,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -45,7 +48,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.room.Room
@@ -178,25 +186,70 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
     val isAiThinking by viewModel.isAiThinking.collectAsStateWithLifecycle()
     val activeReaderPageIndex by viewModel.activeReaderPageIndex.collectAsStateWithLifecycle()
 
-    // Pull-down-to-refresh gesture detector on main scrollable pages
+    // Google Play Store–style transparent pull-down-to-refresh gesture detector
+    val density = LocalDensity.current
+    val pullTriggerThresholdPx = remember(density) { with(density) { 82.dp.toPx() } }
+    val topPullZoneHeightPx = remember(density) { with(density) { 260.dp.toPx() } }
     var overscrollPullPx by remember { mutableFloatStateOf(0f) }
-    val pullRefreshNestedScroll = remember(activeOverlay, isPageRefreshing, isAppStartingLoading) {
+
+    val animatedPullProgress by animateFloatAsState(
+        targetValue = (overscrollPullPx / pullTriggerThresholdPx).coerceIn(0f, 1.35f),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "pull_to_refresh_progress"
+    )
+
+    val pullRefreshNestedScroll = remember(activeOverlay, isPageRefreshing, isAppStartingLoading, pullTriggerThresholdPx) {
         object : NestedScrollConnection {
+            override fun onPreScroll(
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                // If user pushes back up while pulling down, reduce the pull distance smoothly
+                if (source == NestedScrollSource.UserInput && available.y < 0f && overscrollPullPx > 0f) {
+                    val consumedY = available.y.coerceAtLeast(-overscrollPullPx)
+                    overscrollPullPx = (overscrollPullPx + consumedY).coerceAtLeast(0f)
+                    return Offset(0f, consumedY)
+                }
+                return Offset.Zero
+            }
+
             override fun onPostScroll(
                 consumed: Offset,
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                if (source == NestedScrollSource.UserInput && available.y > 0f && consumed.y == 0f) {
-                    overscrollPullPx += available.y
-                    if (overscrollPullPx > 145f && !isPageRefreshing && !isAppStartingLoading) {
+                if (activeOverlay is ActiveOverlay.PdfReader || activeOverlay is ActiveOverlay.NoteEditor) {
+                    return Offset.Zero
+                }
+                if (source == NestedScrollSource.UserInput && available.y > 0f) {
+                    // Accumulate unconsumed downward drag at the top of any LazyColumn / screen
+                    overscrollPullPx = (overscrollPullPx + available.y * 0.85f).coerceAtMost(pullTriggerThresholdPx * 1.6f)
+                    if (overscrollPullPx >= pullTriggerThresholdPx && !isPageRefreshing && !isAppStartingLoading) {
                         overscrollPullPx = 0f
                         viewModel.refreshAppPage()
                     }
-                } else if (consumed.y < 0f) {
+                } else if (consumed.y < -2f) {
                     overscrollPullPx = 0f
                 }
                 return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (overscrollPullPx >= pullTriggerThresholdPx * 0.72f && !isPageRefreshing && !isAppStartingLoading) {
+                    overscrollPullPx = 0f
+                    viewModel.refreshAppPage()
+                } else {
+                    overscrollPullPx = 0f
+                }
+                return Velocity.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                overscrollPullPx = 0f
+                return Velocity.Zero
             }
         }
     }
@@ -206,7 +259,13 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
         settings.appTheme == AppThemeOption.GALACTIC_CODEX
     val isNothingOs = settings.appStyle == AppStyleOption.NOTHING_UI ||
         settings.appTheme == AppThemeOption.NOTHING_OS_GLASS
+    val isDesertDuneClay = settings.appStyle == AppStyleOption.DESERT_DUNE_CLAY_UI ||
+        settings.appTheme == AppThemeOption.DESERT_DUNE_CLAY
+    val isEnchantedForestCodex = settings.appStyle == AppStyleOption.ENCHANTED_FOREST_UI ||
+        settings.appTheme == AppThemeOption.ENCHANTED_FOREST_CODEX
     val useDarkTheme = when {
+        isDesertDuneClay -> false
+        isEnchantedForestCodex -> true
         isNothingOs -> true
         isGalacticCodex -> true
         else -> when (settings.themeMode) {
@@ -247,7 +306,9 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
     GlassPaperTheme(
         darkTheme = useDarkTheme,
         isGalacticCodex = isGalacticCodex,
-        isNothingOs = isNothingOs
+        isNothingOs = isNothingOs,
+        isDesertDuneClay = isDesertDuneClay,
+        isEnchantedForestCodex = isEnchantedForestCodex
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (!authSession.isAuthenticated && !hasPassedAuthGateInSession) {
@@ -268,6 +329,52 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
                             modifier = Modifier
                                 .fillMaxSize()
                                 .nestedScroll(pullRefreshNestedScroll)
+                                .pointerInput(activeOverlay, isPageRefreshing, isAppStartingLoading, pullTriggerThresholdPx, topPullZoneHeightPx) {
+                                    if (activeOverlay is ActiveOverlay.PdfReader || activeOverlay is ActiveOverlay.NoteEditor) {
+                                        return@pointerInput
+                                    }
+                                    awaitEachGesture {
+                                        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                                        // Allow pulling down from the top header / status / hero area of any screen
+                                        if (down.position.y > topPullZoneHeightPx) return@awaitEachGesture
+                                        var dragDy = 0f
+                                        var dragDx = 0f
+                                        var trackingVerticalPull = false
+
+                                        while (true) {
+                                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                            if (!change.pressed) {
+                                                if (overscrollPullPx >= pullTriggerThresholdPx * 0.72f && !isPageRefreshing && !isAppStartingLoading) {
+                                                    overscrollPullPx = 0f
+                                                    viewModel.refreshAppPage()
+                                                } else {
+                                                    overscrollPullPx = 0f
+                                                }
+                                                break
+                                            }
+                                            val delta = change.position - change.previousPosition
+                                            dragDy += delta.y
+                                            dragDx += abs(delta.x)
+
+                                            if (!trackingVerticalPull && dragDy > 14f && dragDy > dragDx * 1.25f) {
+                                                trackingVerticalPull = true
+                                            }
+                                            if (trackingVerticalPull) {
+                                                if (dragDy > 0f) {
+                                                    overscrollPullPx = (dragDy * 0.78f).coerceIn(0f, pullTriggerThresholdPx * 1.55f)
+                                                    if (overscrollPullPx >= pullTriggerThresholdPx * 1.05f && !isPageRefreshing && !isAppStartingLoading) {
+                                                        overscrollPullPx = 0f
+                                                        viewModel.refreshAppPage()
+                                                        break
+                                                    }
+                                                } else {
+                                                    overscrollPullPx = 0f
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                         ) {
                             when (val overlay = activeOverlay) {
                                 is ActiveOverlay.Authentication -> {
@@ -539,10 +646,11 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
                 }
             )
 
-            // Full-Screen Android / Play Store Organic Scalloped Blob Loading Screen (#101010)
+            // Full-Screen Transparent Google Play Store Organic Scalloped Blob Loading & Pull-to-Refresh Overlay
             // Triggers on app startup, page refresh (pull-to-refresh / menu refresh / re-tapping active tab), and heavy content loading
             PlayStoreSystemLoadingOverlay(
-                visible = isAppStartingLoading || isPageRefreshing || toolState.isRunning
+                visible = isAppStartingLoading || isPageRefreshing || toolState.isRunning,
+                pullProgress = animatedPullProgress
             )
         }
     }

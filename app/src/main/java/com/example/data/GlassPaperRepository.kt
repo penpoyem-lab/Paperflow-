@@ -35,6 +35,7 @@ class GlassPaperRepository(
         }
         context.deleteDatabase("glasspaper.db")
         dao.deleteLegacySampleDocuments()
+        dao.deleteLegacyCannedAiChatMessages()
     }
 
     suspend fun importPdfFromUri(uri: Uri, categoryOverride: String = "Imported"): Result<PdfDocumentEntity> =

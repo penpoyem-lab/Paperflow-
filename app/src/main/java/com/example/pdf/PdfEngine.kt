@@ -1557,4 +1557,152 @@ object PdfEngine {
             exported
         }
     }
+
+    /**
+     * Generates a clean, multi-script Unicode PDF document from translated page text blocks.
+     * Uses Android's native `StaticLayout` + `PdfDocument` canvas rendering so all global scripts
+     * (Latin, Devanagari/Hindi, Bengali, Arabic, CJK, Cyrillic, Thai, Hebrew, Tamil, etc.)
+     * render crisply without font encoding errors.
+     */
+    suspend fun createTranslatedPdfDocument(
+        context: Context,
+        sourceTitle: String,
+        sourceLanguage: String,
+        targetLanguage: String,
+        translatedPages: List<String>,
+        customOutputFilename: String = ""
+    ): File? = withContext(Dispatchers.IO) {
+        renderMutex.withLock {
+            try {
+                if (translatedPages.isEmpty()) return@withLock null
+                val baseName = customOutputFilename.ifBlank {
+                    "${sourceTitle.removeSuffix(".pdf")}-${targetLanguage.substringBefore(" ").lowercase()}"
+                }
+                val outFile = getOutputFile(context, "", baseName)
+
+                val pageWidth = 595 // Standard A4 width in points (72 dpi)
+                val pageHeight = 842 // Standard A4 height in points
+                val marginHorizontal = 42f
+                val marginTop = 58f
+                val marginBottom = 48f
+                val contentWidth = (pageWidth - marginHorizontal * 2).toInt()
+                val usableHeight = pageHeight - marginTop - marginBottom
+
+                val outPdf = PdfDocument()
+                var pdfPageNumber = 1
+
+                val headerPaint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.rgb(30, 64, 175)
+                    textSize = 9.5f
+                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                }
+                val footerPaint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.rgb(100, 116, 139)
+                    textSize = 9f
+                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                }
+                val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.rgb(226, 232, 240)
+                    strokeWidth = 1f
+                }
+                val bodyTextPaint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.rgb(15, 23, 42)
+                    textSize = 11.5f
+                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                }
+
+                translatedPages.forEachIndexed { srcPageIdx, rawPageText ->
+                    val cleanedText = rawPageText
+                        .replace("### ", "")
+                        .replace("## ", "")
+                        .replace("# ", "")
+                        .replace("**", "")
+                        .trim()
+                        .ifBlank { "(Page ${srcPageIdx + 1})" }
+
+                    val staticLayout = android.text.StaticLayout.Builder
+                        .obtain(cleanedText, 0, cleanedText.length, bodyTextPaint, contentWidth)
+                        .setAlignment(android.text.Layout.Alignment.ALIGN_NORMAL)
+                        .setLineSpacing(3.5f, 1.18f)
+                        .setIncludePad(false)
+                        .build()
+
+                    val totalLines = staticLayout.lineCount
+                    var startLine = 0
+
+                    while (startLine < totalLines) {
+                        val startY = staticLayout.getLineTop(startLine)
+                        var endLine = startLine
+                        while (endLine < totalLines) {
+                            val lineBottom = staticLayout.getLineBottom(endLine)
+                            if (lineBottom - startY > usableHeight && endLine > startLine) {
+                                break
+                            }
+                            endLine++
+                        }
+
+                        val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pdfPageNumber).create()
+                        val page = outPdf.startPage(pageInfo)
+                        val canvas = page.canvas
+                        canvas.drawColor(Color.WHITE)
+
+                        // Top header bar
+                        val headerTitle = "${sourceTitle.removeSuffix(".pdf")} • $sourceLanguage → $targetLanguage (Source Page ${srcPageIdx + 1})"
+                        canvas.drawText(
+                            headerTitle.take(78),
+                            marginHorizontal,
+                            34f,
+                            headerPaint
+                        )
+                        canvas.drawLine(
+                            marginHorizontal,
+                            42f,
+                            pageWidth - marginHorizontal,
+                            42f,
+                            dividerPaint
+                        )
+
+                        // Clip and draw the slice of StaticLayout lines for this page
+                        val sliceHeight = (staticLayout.getLineBottom(endLine - 1) - startY).toFloat()
+                        canvas.save()
+                        canvas.translate(marginHorizontal, marginTop)
+                        canvas.clipRect(0f, 0f, contentWidth.toFloat(), sliceHeight + 6f)
+                        canvas.translate(0f, -startY.toFloat())
+                        staticLayout.draw(canvas)
+                        canvas.restore()
+
+                        // Bottom footer bar
+                        canvas.drawLine(
+                            marginHorizontal,
+                            pageHeight - 34f,
+                            pageWidth - marginHorizontal,
+                            pageHeight - 34f,
+                            dividerPaint
+                        )
+                        canvas.drawText(
+                            "Paperflow AI Universal PDF Translator • Page $pdfPageNumber",
+                            marginHorizontal,
+                            pageHeight - 18f,
+                            footerPaint
+                        )
+
+                        outPdf.finishPage(page)
+                        pdfPageNumber++
+                        startLine = endLine
+                    }
+                }
+
+                if (pdfPageNumber == 1) {
+                    outPdf.close()
+                    return@withLock null
+                }
+
+                FileOutputStream(outFile).use { outPdf.writeTo(it) }
+                outPdf.close()
+                outFile
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
 }

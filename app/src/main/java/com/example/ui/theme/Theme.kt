@@ -17,6 +17,8 @@ data class GlassColors(
     val isDark: Boolean,
     val isGalacticCodex: Boolean = false,
     val isNothingOs: Boolean = false,
+    val isDesertDuneClay: Boolean = false,
+    val isEnchantedForestCodex: Boolean = false,
     val panelBackground: Color,
     val panelBackgroundElevated: Color,
     val borderHighlight: Color,
@@ -105,21 +107,105 @@ private val LightColorScheme = lightColorScheme(
     error = LiquidMagenta
 )
 
+private val DesertDuneClayColorScheme = lightColorScheme(
+    primary = DesertClayPeachTerracotta,
+    onPrimary = Color.White,
+    primaryContainer = DesertClaySoftApricot,
+    onPrimaryContainer = DesertClayCocoaBrown,
+    secondary = DesertClayCocoaBrown,
+    onSecondary = Color.White,
+    secondaryContainer = DesertClayWarmSand,
+    onSecondaryContainer = DesertClayCocoaBrown,
+    tertiary = DesertClayDeepTerracotta,
+    onTertiary = Color.White,
+    background = DesertClayCreamBase,
+    onBackground = DesertClayCocoaBrown,
+    surface = DesertClayCardSurface,
+    onSurface = DesertClayCocoaBrown,
+    surfaceVariant = DesertClayWarmSand,
+    onSurfaceVariant = DesertClayMutedBrown,
+    error = LiquidMagenta
+)
+
+private val EnchantedForestColorScheme = darkColorScheme(
+    primary = ForestSageGreen,
+    onPrimary = ForestParchmentLight,
+    primaryContainer = ForestCanopyDarkMoss,
+    onPrimaryContainer = ForestParchmentLight,
+    secondary = ForestCopperBark,
+    onSecondary = Color.White,
+    secondaryContainer = ForestParchmentWarm,
+    onSecondaryContainer = ForestDeepMossText,
+    tertiary = ForestGoldenFern,
+    onTertiary = ForestDeepMossText,
+    background = ForestCanopyDeepGreen,
+    onBackground = ForestParchmentLight,
+    surface = ForestCanopyDarkMoss,
+    onSurface = ForestParchmentLight,
+    surfaceVariant = Color(0xFF143D2F),
+    onSurfaceVariant = ForestParchmentWarm,
+    error = LiquidMagenta
+)
+
 @Composable
 fun GlassPaperTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     isGalacticCodex: Boolean = false,
     isNothingOs: Boolean = false,
+    isDesertDuneClay: Boolean = false,
+    isEnchantedForestCodex: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val effectiveDark = darkTheme || isGalacticCodex || isNothingOs
+    val effectiveDark = when {
+        isDesertDuneClay -> false
+        isEnchantedForestCodex -> true
+        isGalacticCodex -> true
+        isNothingOs -> true
+        else -> darkTheme
+    }
     val colorScheme = when {
+        isDesertDuneClay -> DesertDuneClayColorScheme
+        isEnchantedForestCodex -> EnchantedForestColorScheme
         isNothingOs -> NothingOsColorScheme
         effectiveDark -> DarkColorScheme
         else -> LightColorScheme
     }
 
     val targetGlassColors = when {
+        isDesertDuneClay -> GlassColors(
+            isDark = false,
+            isGalacticCodex = false,
+            isNothingOs = false,
+            isDesertDuneClay = true,
+            isEnchantedForestCodex = false,
+            panelBackground = DesertClayCardSurface,
+            panelBackgroundElevated = DesertClayCardElevated,
+            borderHighlight = Color(0xFFFFFFFF),
+            borderSubtle = DesertClaySoftApricot.copy(alpha = 0.65f),
+            textPrimary = DesertClayCocoaBrown,
+            textSecondary = DesertClayMutedBrown,
+            textMuted = DesertClayMutedBrown.copy(alpha = 0.78f),
+            iconTint = DesertClayPeachTerracotta,
+            innerGlowTop = Color(0xFFFFFFFF),
+            innerGlowBottom = DesertClayPeachTerracotta.copy(alpha = 0.25f)
+        )
+        isEnchantedForestCodex -> GlassColors(
+            isDark = true,
+            isGalacticCodex = false,
+            isNothingOs = false,
+            isDesertDuneClay = false,
+            isEnchantedForestCodex = true,
+            panelBackground = ForestParchmentLight,
+            panelBackgroundElevated = ForestParchmentWarm,
+            borderHighlight = ForestSageGreen.copy(alpha = 0.85f),
+            borderSubtle = ForestCopperBark.copy(alpha = 0.55f),
+            textPrimary = ForestParchmentLight,
+            textSecondary = ForestParchmentWarm,
+            textMuted = ForestSageGreen,
+            iconTint = ForestSageGreen,
+            innerGlowTop = ForestGoldenFern.copy(alpha = 0.45f),
+            innerGlowBottom = ForestSageGreen.copy(alpha = 0.35f)
+        )
         isNothingOs -> GlassColors(
             isDark = true,
             isGalacticCodex = false,
@@ -213,7 +299,11 @@ fun GlassPaperTheme(
     CompositionLocalProvider(LocalGlassColors provides smoothGlassColors) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = if (isNothingOs) NothingOsTypography else Typography,
+            typography = when {
+                isNothingOs -> NothingOsTypography
+                isEnchantedForestCodex -> BotanicalForestTypography
+                else -> Typography
+            },
             content = content
         )
     }

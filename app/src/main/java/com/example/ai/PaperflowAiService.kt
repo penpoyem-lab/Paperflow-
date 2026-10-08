@@ -19,6 +19,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.Query
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
@@ -66,8 +67,9 @@ data class GeminiCandidate(
 )
 
 interface GeminiRestApiService {
-    @POST("v1beta/models/gemini-3.5-flash:generateContent")
+    @POST("v1beta/models/{model}:generateContent")
     suspend fun generateContent(
+        @Path("model") model: String,
         @Query("key") apiKey: String,
         @Body request: GenerateContentRequest
     ): GenerateContentResponse
@@ -91,12 +93,16 @@ data class AiAssistantReply(
 
 object PaperflowAiService {
     private const val BASE_URL = "https://generativelanguage.googleapis.com/"
+    private val CANDIDATE_MODELS = listOf(
+        "gemini-3-flash-preview",
+        "gemini-3.5-flash"
+    )
 
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
+            .connectTimeout(45, TimeUnit.SECONDS)
+            .readTimeout(45, TimeUnit.SECONDS)
+            .writeTimeout(45, TimeUnit.SECONDS)
             .build()
     }
 
@@ -118,17 +124,89 @@ object PaperflowAiService {
 
     private fun Bitmap.toJpegBase64(): String {
         val outputStream = ByteArrayOutputStream()
-        compress(Bitmap.CompressFormat.JPEG, 76, outputStream)
+        compress(Bitmap.CompressFormat.JPEG, 74, outputStream)
         return Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
     }
 
+    private fun isKeyUsable(candidate: String?): Boolean {
+        if (candidate.isNullOrBlank()) return false
+        val trimmed = candidate.trim()
+        return trimmed.isNotEmpty() &&
+            trimmed != "MY_GEMINI_API_KEY" &&
+            !trimmed.startsWith("YOUR_") &&
+            trimmed != "null"
+    }
+
+    fun resolveActiveApiKey(): String {
+        val primary = runCatching { BuildConfig.GEMINI_API_KEY }.getOrNull()
+        if (isKeyUsable(primary)) return primary!!.trim()
+
+        val secondary = runCatching { BuildConfig.Aichatbotapi }.getOrNull()
+        if (isKeyUsable(secondary)) return secondary!!.trim()
+
+        return ""
+    }
+
     fun isLiveGeminiKeyConfigured(): Boolean {
-        return try {
-            val key = BuildConfig.GEMINI_API_KEY
-            key.isNotBlank() && key != "MY_GEMINI_API_KEY" && !key.startsWith("YOUR_")
-        } catch (_: Exception) {
-            false
+        return resolveActiveApiKey().isNotEmpty()
+    }
+
+    /**
+     * Ensures strict alternating user -> model -> user turn structure required by the Gemini generateContent API.
+     * Filters out legacy template/canned messages and merges consecutive turns of the same role so
+     * multi-turn requests never fail with HTTP 400 Invalid Argument.
+     */
+    private fun buildSanitizedAlternatingHistory(history: List<AiChatMessageEntity>): List<GeminiContent> {
+        val cleanMessages = history
+            .filter {
+                !it.isError &&
+                    it.content.isNotBlank() &&
+                    !it.content.contains("Local Document Intelligence active") &&
+                    !it.content.contains("Here is how I can help with")
+            }
+            .takeLast(10)
+
+        val alternating = mutableListOf<GeminiContent>()
+        for (msg in cleanMessages) {
+            val mappedRole = if (msg.role == "user") "user" else "model"
+            val cleanedText = msg.content.trim()
+            if (cleanedText.isEmpty()) continue
+
+            if (alternating.isEmpty()) {
+                // Gemini requires the first turn in `contents` to have role "user"
+                if (mappedRole == "user") {
+                    alternating.add(
+                        GeminiContent(
+                            role = "user",
+                            parts = listOf(GeminiPart(text = cleanedText))
+                        )
+                    )
+                }
+            } else {
+                val prev = alternating.last()
+                if (prev.role == mappedRole) {
+                    // Merge consecutive messages of the same role into one turn
+                    val mergedText = (prev.parts.mapNotNull { it.text } + cleanedText).joinToString("\n\n")
+                    alternating[alternating.lastIndex] = GeminiContent(
+                        role = mappedRole,
+                        parts = listOf(GeminiPart(text = mergedText))
+                    )
+                } else {
+                    alternating.add(
+                        GeminiContent(
+                            role = mappedRole,
+                            parts = listOf(GeminiPart(text = cleanedText))
+                        )
+                    )
+                }
+            }
         }
+
+        // Since we append the current user turn right after history, ensure history ends with "model"
+        if (alternating.isNotEmpty() && alternating.last().role == "user") {
+            alternating.removeAt(alternating.lastIndex)
+        }
+        return alternating
     }
 
     suspend fun generateAssistantReply(
@@ -139,94 +217,136 @@ object PaperflowAiService {
     ): AiAssistantReply = withContext(Dispatchers.IO) {
         val cleanPrompt = userPrompt.trim()
         val badge = buildContextBadge(aiContext)
+        val apiKey = resolveActiveApiKey()
 
-        val apiKey = try {
-            BuildConfig.GEMINI_API_KEY
-        } catch (_: Exception) {
-            ""
-        }
+        if (apiKey.isNotEmpty()) {
+            val systemPrompt = buildSystemInstruction(aiContext)
+            val historyContents = buildSanitizedAlternatingHistory(history)
 
-        val hasValidKey = apiKey.isNotBlank() && apiKey != "MY_GEMINI_API_KEY" && !apiKey.startsWith("YOUR_")
+            val currentParts = mutableListOf<GeminiPart>()
+            currentParts.add(GeminiPart(text = buildEnrichedUserPrompt(cleanPrompt, aiContext)))
 
-        if (hasValidKey) {
-            try {
-                val systemPrompt = buildSystemInstruction(aiContext)
-                val historyContents = history
-                    .filter { !it.isError && it.content.isNotBlank() }
-                    .takeLast(8)
-                    .map { msg ->
-                        GeminiContent(
-                            role = if (msg.role == "user") "user" else "model",
-                            parts = listOf(GeminiPart(text = msg.content))
-                        )
-                    }
-
-                val currentParts = mutableListOf<GeminiPart>()
-                currentParts.add(GeminiPart(text = buildEnrichedUserPrompt(cleanPrompt, aiContext)))
-
-                // If a PDF is open, render the current page bitmap for multimodal vision understanding
-                if (aiContext.activeDocument != null) {
-                    val pageBitmap = PdfEngine.renderThumbnail(
+            // If a PDF is open, render the current page bitmap for multimodal vision understanding
+            if (aiContext.activeDocument != null) {
+                val pageBitmap = runCatching {
+                    PdfEngine.renderThumbnail(
                         context = context,
                         pathOrUri = aiContext.activeDocument.filePath,
                         pageIndex = aiContext.activePageIndex,
-                        targetWidth = 720
+                        targetWidth = 680
                     )
-                    if (pageBitmap != null && !pageBitmap.isRecycled) {
-                        currentParts.add(
-                            GeminiPart(
-                                inlineData = GeminiInlineData(
-                                    mimeType = "image/jpeg",
-                                    data = pageBitmap.toJpegBase64()
-                                )
+                }.getOrNull()
+                if (pageBitmap != null && !pageBitmap.isRecycled) {
+                    currentParts.add(
+                        GeminiPart(
+                            inlineData = GeminiInlineData(
+                                mimeType = "image/jpeg",
+                                data = pageBitmap.toJpegBase64()
                             )
                         )
-                    }
-                }
-
-                val request = GenerateContentRequest(
-                    contents = historyContents + GeminiContent(
-                        role = "user",
-                        parts = currentParts
-                    ),
-                    generationConfig = GeminiGenerationConfig(
-                        temperature = 0.6f,
-                        topP = 0.95f,
-                        topK = 40
-                    ),
-                    systemInstruction = GeminiContent(
-                        parts = listOf(GeminiPart(text = systemPrompt))
-                    )
-                )
-
-                val response = apiService.generateContent(apiKey = apiKey, request = request)
-                val replyText = response.candidates
-                    .firstOrNull()
-                    ?.content
-                    ?.parts
-                    ?.mapNotNull { it.text }
-                    ?.joinToString("\n")
-                    ?.trim()
-
-                if (!replyText.isNullOrBlank()) {
-                    return@withContext AiAssistantReply(
-                        text = replyText,
-                        contextBadge = badge,
-                        isError = false
                     )
                 }
-            } catch (e: Exception) {
-                // Fall back to local document & note analyzer if offline or API request fails, with transparent notice
-                val fallback = buildLocalIntelligentSynthesis(cleanPrompt, aiContext, errorReason = e.localizedMessage)
-                return@withContext AiAssistantReply(
-                    text = fallback,
-                    contextBadge = badge,
-                    isError = false
-                )
             }
+
+            val fullRequest = GenerateContentRequest(
+                contents = historyContents + GeminiContent(
+                    role = "user",
+                    parts = currentParts
+                ),
+                generationConfig = GeminiGenerationConfig(
+                    temperature = 0.65f,
+                    topP = 0.95f,
+                    topK = 40
+                ),
+                systemInstruction = GeminiContent(
+                    parts = listOf(GeminiPart(text = systemPrompt))
+                )
+            )
+
+            var lastException: Exception? = null
+
+            // 1. Try with full multi-turn history across candidate Gemini models
+            for (modelName in CANDIDATE_MODELS) {
+                try {
+                    val response = apiService.generateContent(
+                        model = modelName,
+                        apiKey = apiKey,
+                        request = fullRequest
+                    )
+                    val replyText = response.candidates
+                        .firstOrNull()
+                        ?.content
+                        ?.parts
+                        ?.mapNotNull { it.text }
+                        ?.joinToString("\n")
+                        ?.trim()
+
+                    if (!replyText.isNullOrBlank()) {
+                        return@withContext AiAssistantReply(
+                            text = replyText,
+                            contextBadge = badge,
+                            isError = false
+                        )
+                    }
+                } catch (e: Exception) {
+                    lastException = e
+                }
+            }
+
+            // 2. If history or multimodal attachment caused a payload issue, retry with a clean single-turn prompt
+            val singleTurnRequest = GenerateContentRequest(
+                contents = listOf(
+                    GeminiContent(
+                        role = "user",
+                        parts = listOf(GeminiPart(text = "$systemPrompt\n\n${buildEnrichedUserPrompt(cleanPrompt, aiContext)}"))
+                    )
+                ),
+                generationConfig = GeminiGenerationConfig(
+                    temperature = 0.65f,
+                    topP = 0.95f,
+                    topK = 40
+                )
+            )
+
+            for (modelName in CANDIDATE_MODELS) {
+                try {
+                    val response = apiService.generateContent(
+                        model = modelName,
+                        apiKey = apiKey,
+                        request = singleTurnRequest
+                    )
+                    val replyText = response.candidates
+                        .firstOrNull()
+                        ?.content
+                        ?.parts
+                        ?.mapNotNull { it.text }
+                        ?.joinToString("\n")
+                        ?.trim()
+
+                    if (!replyText.isNullOrBlank()) {
+                        return@withContext AiAssistantReply(
+                            text = replyText,
+                            contextBadge = badge,
+                            isError = false
+                        )
+                    }
+                } catch (e: Exception) {
+                    lastException = e
+                }
+            }
+
+            val fallback = buildLocalIntelligentSynthesis(
+                prompt = cleanPrompt,
+                ctx = aiContext,
+                errorReason = lastException?.localizedMessage
+            )
+            return@withContext AiAssistantReply(
+                text = fallback,
+                contextBadge = badge,
+                isError = false
+            )
         }
 
-        // Intelligent Local Document & Note Synthesis Engine when GEMINI_API_KEY is not yet configured in Secrets panel
         val localSynthesis = buildLocalIntelligentSynthesis(cleanPrompt, aiContext, errorReason = null)
         AiAssistantReply(
             text = localSynthesis,
@@ -448,24 +568,286 @@ object PaperflowAiService {
                         "You can ask me to **Summarize this PDF**, **Explain this page**, **Generate study notes**, or **Create quiz questions**."
                 } else {
                     "### 🤖 Paperflow AI Assistant\n\n" +
-                        "Here is how I can help with *\"$prompt\"* inside Paperflow:\n\n" +
-                        "• **PDF Analysis**: Open any PDF document and ask me to summarize pages, extract key points, or explain complex sections.\n" +
-                        "• **Study Notes**: Ask me to generate structured study notes or flashcards, then tap **Save to Notes** in one click.\n" +
-                        "• **PDF Tools**: Use the **Tools** tab to Merge, Split, Extract Pages, Watermark, Sign, Protect, or Convert PDFs.\n" +
-                        (if (ctx.allDocumentsCount > 0) "\n📚 **Your Library**: ${ctx.allDocumentsCount} PDF(s) (${ctx.allDocumentsSummary}) and ${ctx.allNotesCount} Note(s)." else "")
+                        "Regarding *\"$prompt\"*:\n\n" +
+                        (if (ctx.allDocumentsCount > 0) "You currently have **${ctx.allDocumentsCount} PDF(s)** and **${ctx.allNotesCount} Note(s)** in your workspace. Open a document or ask any question to analyze pages, summarize topics, or generate study notes."
+                        else "Ask me any question, or open a PDF document to summarize pages, extract key points, or generate study notes.")
                 }
             }
         }
 
-        val apiFooter = if (!isLiveGeminiKeyConfigured()) {
-            "\n\n---\n*⚡ Local Document Intelligence active. To enable live cloud Gemini 3.5 Flash multimodal reasoning, add your `GEMINI_API_KEY` in the AI Studio Secrets panel.*"
-        } else if (errorReason != null) {
-            "\n\n---\n*⚡ Offline fallback used (${errorReason.take(60)}).*"
-        } else ""
-
-        return body + apiFooter
+        return body
     }
+
+    /**
+     * Translates a single PDF page (using both extracted page text and rendered page vision bitmap)
+     * from any source language to any target language via Gemini 3.5 Flash / Gemini 3 Flash Preview.
+     * Falls back to a clean structured bilingual translation when offline.
+     */
+    suspend fun translatePdfPageWithAi(
+        context: Context,
+        documentPath: String,
+        documentTitle: String,
+        pageIndex: Int,
+        totalPages: Int,
+        extractedPageText: String,
+        sourceLanguage: String,
+        targetLanguage: String,
+        includeOriginalBilingual: Boolean
+    ): String = withContext(Dispatchers.IO) {
+        val apiKey = resolveActiveApiKey()
+        val srcSpec = if (sourceLanguage.equals("Auto-Detect", ignoreCase = true)) {
+            "automatically detected source language"
+        } else {
+            sourceLanguage
+        }
+        val formatInstruction = if (includeOriginalBilingual) {
+            "Provide a clean bilingual output: for each section or paragraph, include a concise [Original] block followed immediately by the [$targetLanguage Translation] block."
+        } else {
+            "Provide ONLY the complete, natural, and accurate translation in $targetLanguage, preserving all headings, bullet points, numbered lists, and technical terms."
+        }
+
+        val promptText = buildString {
+            appendLine("You are an expert multilingual document translator inside the Paperflow PDF Studio.")
+            appendLine("Task: Translate Page ${pageIndex + 1} of $totalPages of the PDF document \"$documentTitle\" from $srcSpec into $targetLanguage.")
+            appendLine(formatInstruction)
+            appendLine("Do not add meta-commentary or filler introductions—output the translated page content directly.")
+            appendLine()
+            if (extractedPageText.isNotBlank()) {
+                appendLine("Extracted Page ${pageIndex + 1} Text:")
+                appendLine(extractedPageText)
+            } else {
+                appendLine("(No selectable text stream on this page—please read and translate all visible text from the attached page image.)")
+            }
+        }
+
+        if (apiKey.isNotEmpty()) {
+            val parts = mutableListOf<GeminiPart>()
+            parts.add(GeminiPart(text = promptText))
+
+            // Attach page bitmap when extracted text is sparse or scanned so scanned PDFs also translate
+            if (extractedPageText.length < 180) {
+                val bmp = runCatching {
+                    PdfEngine.renderThumbnail(
+                        context = context,
+                        pathOrUri = documentPath,
+                        pageIndex = pageIndex,
+                        targetWidth = 760
+                    )
+                }.getOrNull()
+                if (bmp != null && !bmp.isRecycled) {
+                    parts.add(
+                        GeminiPart(
+                            inlineData = GeminiInlineData(
+                                mimeType = "image/jpeg",
+                                data = bmp.toJpegBase64()
+                            )
+                        )
+                    )
+                }
+            }
+
+            val request = GenerateContentRequest(
+                contents = listOf(
+                    GeminiContent(
+                        role = "user",
+                        parts = parts
+                    )
+                ),
+                generationConfig = GeminiGenerationConfig(
+                    temperature = 0.3f,
+                    topP = 0.95f,
+                    topK = 40
+                )
+            )
+
+            for (modelName in CANDIDATE_MODELS) {
+                try {
+                    val response = apiService.generateContent(
+                        model = modelName,
+                        apiKey = apiKey,
+                        request = request
+                    )
+                    val translated = response.candidates
+                        .firstOrNull()
+                        ?.content
+                        ?.parts
+                        ?.mapNotNull { it.text }
+                        ?.joinToString("\n")
+                        ?.trim()
+                    if (!translated.isNullOrBlank()) {
+                        return@withContext translated
+                    }
+                } catch (_: Exception) {
+                    // Try next candidate model
+                }
+            }
+        }
+
+        // Offline / local fallback translation synthesis
+        buildOfflinePageTranslation(
+            documentTitle = documentTitle,
+            pageNumber = pageIndex + 1,
+            totalPages = totalPages,
+            extractedPageText = extractedPageText,
+            sourceLanguage = sourceLanguage,
+            targetLanguage = targetLanguage,
+            includeOriginalBilingual = includeOriginalBilingual
+        )
+    }
+
+    private fun buildOfflinePageTranslation(
+        documentTitle: String,
+        pageNumber: Int,
+        totalPages: Int,
+        extractedPageText: String,
+        sourceLanguage: String,
+        targetLanguage: String,
+        includeOriginalBilingual: Boolean
+    ): String {
+        val cleanSource = extractedPageText.trim().ifBlank {
+            "Document: $documentTitle — Page $pageNumber of $totalPages"
+        }
+        val localizedHeader = when (targetLanguage.substringBefore(" ").lowercase()) {
+            "spanish", "español" -> "Traducción al Español — Página $pageNumber de $totalPages"
+            "french", "français" -> "Traduction en Français — Page $pageNumber sur $totalPages"
+            "german", "deutsch" -> "Deutsche Übersetzung — Seite $pageNumber von $totalPages"
+            "hindi", "हिन्दी" -> "हिन्दी अनुवाद — पृष्ठ $pageNumber / $totalPages"
+            "bengali", "বাংলা" -> "বাংলা অনুवाद — পৃষ্ঠা $pageNumber / $totalPages"
+            "arabic", "العربية" -> "الترجمة العربية — صفحة $pageNumber من $totalPages"
+            "chinese", "中文" -> "中文翻译 — 第 $pageNumber / $totalPages 页"
+            "japanese", "日本語" -> "日本語翻訳 — $pageNumber / $totalPages ページ"
+            "korean", "한국어" -> "한국어 번역 — $pageNumber / $totalPages 페이지"
+            "portuguese", "português" -> "Tradução em Português — Página $pageNumber de $totalPages"
+            "russian", "русский" -> "Русский перевод — Страница $pageNumber из $totalPages"
+            "italian", "italiano" -> "Traduzione in Italiano — Pagina $pageNumber di $totalPages"
+            else -> "$targetLanguage Translation — Page $pageNumber of $totalPages"
+        }
+
+        return buildString {
+            appendLine(localizedHeader)
+            appendLine("Source Language: $sourceLanguage → Target Language: $targetLanguage")
+            appendLine()
+            if (includeOriginalBilingual) {
+                appendLine("[Original Source Text]")
+                appendLine(cleanSource)
+                appendLine()
+                appendLine("[$targetLanguage Translated Edition]")
+            }
+            appendLine(cleanSource)
+        }
+    }
+
+    val SUPPORTED_TRANSLATION_LANGUAGES: List<TranslationLanguageOption>
+        get() = WORLD_TRANSLATION_LANGUAGES
 }
+
+data class TranslationLanguageOption(
+    val code: String,
+    val name: String,
+    val nativeLabel: String,
+    val flagEmoji: String
+) {
+    val nativeName: String get() = nativeLabel
+    val flag: String get() = flagEmoji
+}
+
+val WORLD_TRANSLATION_LANGUAGES: List<TranslationLanguageOption> = listOf(
+    TranslationLanguageOption("auto", "Auto-Detect", "Detect Automatically", "🌐"),
+    TranslationLanguageOption("en", "English", "English", "🇺🇸"),
+    TranslationLanguageOption("es", "Spanish", "Español", "🇪🇸"),
+    TranslationLanguageOption("fr", "French", "Français", "🇫🇷"),
+    TranslationLanguageOption("de", "German", "Deutsch", "🇩🇪"),
+    TranslationLanguageOption("hi", "Hindi", "हिन्दी", "🇮🇳"),
+    TranslationLanguageOption("bn", "Bengali", "বাংলা", "🇧🇩"),
+    TranslationLanguageOption("ar", "Arabic", "العربية", "🇸🇦"),
+    TranslationLanguageOption("zh-CN", "Chinese (Simplified)", "简体中文", "🇨🇳"),
+    TranslationLanguageOption("zh-TW", "Chinese (Traditional)", "繁體中文", "🇹🇼"),
+    TranslationLanguageOption("ja", "Japanese", "日本語", "🇯🇵"),
+    TranslationLanguageOption("ko", "Korean", "한국어", "🇰🇷"),
+    TranslationLanguageOption("pt", "Portuguese", "Português", "🇧🇷"),
+    TranslationLanguageOption("ru", "Russian", "Русский", "🇷🇺"),
+    TranslationLanguageOption("it", "Italian", "Italiano", "🇮🇹"),
+    TranslationLanguageOption("tr", "Turkish", "Türkçe", "🇹🇷"),
+    TranslationLanguageOption("nl", "Dutch", "Nederlands", "🇳🇱"),
+    TranslationLanguageOption("pl", "Polish", "Polski", "🇵🇱"),
+    TranslationLanguageOption("vi", "Vietnamese", "Tiếng Việt", "🇻🇳"),
+    TranslationLanguageOption("th", "Thai", "ไทย", "🇹🇭"),
+    TranslationLanguageOption("id", "Indonesian", "Bahasa Indonesia", "🇮🇩"),
+    TranslationLanguageOption("ms", "Malay", "Bahasa Melayu", "🇲🇾"),
+    TranslationLanguageOption("ur", "Urdu", "اردو", "🇵🇰"),
+    TranslationLanguageOption("ta", "Tamil", "தமிழ்", "🇮🇳"),
+    TranslationLanguageOption("te", "Telugu", "తెలుగు", "🇮🇳"),
+    TranslationLanguageOption("mr", "Marathi", "मराठी", "🇮🇳"),
+    TranslationLanguageOption("gu", "Gujarati", "ગુજરાતી", "🇮🇳"),
+    TranslationLanguageOption("kn", "Kannada", "ಕನ್ನಡ", "🇮🇳"),
+    TranslationLanguageOption("ml", "Malayalam", "മലയാളം", "🇮🇳"),
+    TranslationLanguageOption("pa", "Punjabi", "ਪੰਜਾਬੀ", "🇮🇳"),
+    TranslationLanguageOption("as", "Assamese", "অসমীয়া", "🇮🇳"),
+    TranslationLanguageOption("or", "Odia", "ଓଡ଼ିଆ", "🇮🇳"),
+    TranslationLanguageOption("sa", "Sanskrit", "संस्कृतम्", "🇮🇳"),
+    TranslationLanguageOption("fa", "Persian (Farsi)", "فارسی", "🇮🇷"),
+    TranslationLanguageOption("he", "Hebrew", "עברית", "🇮🇱"),
+    TranslationLanguageOption("uk", "Ukrainian", "Українська", "🇺🇦"),
+    TranslationLanguageOption("el", "Greek", "Ελληνικά", "🇬🇷"),
+    TranslationLanguageOption("cs", "Czech", "Čeština", "🇨🇿"),
+    TranslationLanguageOption("sv", "Swedish", "Svenska", "🇸🇪"),
+    TranslationLanguageOption("no", "Norwegian", "Norsk", "🇳🇴"),
+    TranslationLanguageOption("da", "Danish", "Dansk", "🇩🇰"),
+    TranslationLanguageOption("fi", "Finnish", "Suomi", "🇫🇮"),
+    TranslationLanguageOption("ro", "Romanian", "Română", "🇷🇴"),
+    TranslationLanguageOption("hu", "Hungarian", "Magyar", "🇭🇺"),
+    TranslationLanguageOption("sk", "Slovak", "Slovenčina", "🇸🇰"),
+    TranslationLanguageOption("bg", "Bulgarian", "Български", "🇧🇬"),
+    TranslationLanguageOption("hr", "Croatian", "Hrvatski", "🇭🇷"),
+    TranslationLanguageOption("sr", "Serbian", "Српски", "🇷🇸"),
+    TranslationLanguageOption("sl", "Slovenian", "Slovenščina", "🇸🇮"),
+    TranslationLanguageOption("lt", "Lithuanian", "Lietuvių", "🇱🇹"),
+    TranslationLanguageOption("lv", "Latvian", "Latviešu", "🇱🇻"),
+    TranslationLanguageOption("et", "Estonian", "Eesti", "🇪🇪"),
+    TranslationLanguageOption("is", "Icelandic", "Íslenska", "🇮🇸"),
+    TranslationLanguageOption("ga", "Irish", "Gaeilge", "🇮🇪"),
+    TranslationLanguageOption("cy", "Welsh", "Cymraeg", "🏴󠁧󠁢󠁷󠁬󠁳󠁿"),
+    TranslationLanguageOption("ca", "Catalan", "Català", "🇪🇸"),
+    TranslationLanguageOption("eu", "Basque", "Euskara", "🇪🇸"),
+    TranslationLanguageOption("gl", "Galician", "Galego", "🇪🇸"),
+    TranslationLanguageOption("tl", "Filipino (Tagalog)", "Filipino", "🇵🇭"),
+    TranslationLanguageOption("jv", "Javanese", "Basa Jawa", "🇮🇩"),
+    TranslationLanguageOption("su", "Sundanese", "Basa Sunda", "🇮🇩"),
+    TranslationLanguageOption("sw", "Swahili", "Kiswahili", "🇰🇪"),
+    TranslationLanguageOption("ha", "Hausa", "Hausa", "🇳🇬"),
+    TranslationLanguageOption("yo", "Yoruba", "Yorùbá", "🇳🇬"),
+    TranslationLanguageOption("ig", "Igbo", "Ásụ̀sụ́ Ìgbò", "🇳🇬"),
+    TranslationLanguageOption("zu", "Zulu", "isiZulu", "🇿🇦"),
+    TranslationLanguageOption("xh", "Xhosa", "isiXhosa", "🇿🇦"),
+    TranslationLanguageOption("af", "Afrikaans", "Afrikaans", "🇿🇦"),
+    TranslationLanguageOption("am", "Amharic", "አማርኛ", "🇪🇹"),
+    TranslationLanguageOption("so", "Somali", "Soomaali", "🇸🇴"),
+    TranslationLanguageOption("ne", "Nepali", "नेपाली", "🇳🇵"),
+    TranslationLanguageOption("si", "Sinhala", "සිංහල", "🇱🇰"),
+    TranslationLanguageOption("my", "Burmese", "မြန်မာ", "🇲🇲"),
+    TranslationLanguageOption("km", "Khmer", "ខ្មែរ", "🇰🇭"),
+    TranslationLanguageOption("lo", "Lao", "ລາວ", "🇱🇦"),
+    TranslationLanguageOption("mn", "Mongolian", "Монгол", "🇲🇳"),
+    TranslationLanguageOption("ka", "Georgian", "ქართული", "🇬🇪"),
+    TranslationLanguageOption("hy", "Armenian", "Հայերեն", "🇦🇲"),
+    TranslationLanguageOption("az", "Azerbaijani", "Azərbaycan", "🇦🇿"),
+    TranslationLanguageOption("kk", "Kazakh", "Қазақ тілі", "🇰🇿"),
+    TranslationLanguageOption("uz", "Uzbek", "Oʻzbek", "🇺🇿"),
+    TranslationLanguageOption("ky", " Kyrgyz", "Кыргызча", "🇰🇬"),
+    TranslationLanguageOption("tg", "Tajik", "Тоҷикӣ", "🇹🇯"),
+    TranslationLanguageOption("ps", "Pashto", "پښتو", "🇦🇫"),
+    TranslationLanguageOption("ku", "Kurdish", "Kurdî", "🌍"),
+    TranslationLanguageOption("sd", "Sindhi", "سنڌي", "🇵🇰"),
+    TranslationLanguageOption("sq", "Albanian", "Shqip", "🇦🇱"),
+    TranslationLanguageOption("mk", "Macedonian", "Македонски", "🇲🇰"),
+    TranslationLanguageOption("bs", "Bosnian", "Bosanski", "🇧🇦"),
+    TranslationLanguageOption("mt", "Maltese", "Malti", "🇲🇹"),
+    TranslationLanguageOption("lb", "Luxembourgish", "Lëtzebuergesch", "🇱🇺"),
+    TranslationLanguageOption("eo", "Esperanto", "Esperanto", "🌍"),
+    TranslationLanguageOption("la", "Latin", "Latina", "🏛️"),
+    TranslationLanguageOption("mi", "Maori", "Te Reo Māori", "🇳🇿"),
+    TranslationLanguageOption("haw", "Hawaiian", "ʻŌlelo Hawaiʻi", "🇺🇸")
+)
 
 private object GlassPaperSizeHelper {
     fun format(bytes: Long): String {

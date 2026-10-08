@@ -74,8 +74,21 @@ import com.example.R
 import com.example.data.AppSettings
 import com.example.data.AppStyleOption
 import com.example.data.ThemeModeOption
+import com.example.ui.theme.DesertClayCardElevated
+import com.example.ui.theme.DesertClayCardSurface
+import com.example.ui.theme.DesertClayCocoaBrown
+import com.example.ui.theme.DesertClayCreamBase
+import com.example.ui.theme.DesertClayPeachTerracotta
+import com.example.ui.theme.DesertClaySoftApricot
 import com.example.ui.theme.ElectricBlue
+import com.example.ui.theme.ForestDeepCanopy
+import com.example.ui.theme.ForestFernGreen
+import com.example.ui.theme.ForestParchmentCream
+import com.example.ui.theme.ForestSageGreen
+import com.example.ui.theme.ForestSunlightGold
+import com.example.ui.theme.ForestWarmSand
 import com.example.ui.theme.LiquidCyan
+import com.example.ui.theme.MerriweatherSerifFamily
 import com.example.ui.theme.NothingBrightRed
 import com.example.ui.theme.NothingCrimsonRed
 import com.example.ui.theme.NothingDotMatrixFamily
@@ -329,6 +342,70 @@ fun ThemeScreen(
                     JourneyAwaitsGalacticShowcasePreviewCard(
                         isSelected = isJourneySelected,
                         onSelect = { onSelectAppStyle(AppStyleOption.JOURNEY_AWAITS_UI) },
+                        modifier = Modifier
+                            .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                    )
+                }
+
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = NothingDividerLine
+                )
+
+                // 4. Desert Dune Clay UI Row + Embedded Warm Terracotta 3D Clay Showcase Card
+                val isDesertClaySelected = settings.appStyle == AppStyleOption.DESERT_DUNE_CLAY_UI
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(color = Color.White.copy(alpha = 0.14f)),
+                            onClick = { onSelectAppStyle(AppStyleOption.DESERT_DUNE_CLAY_UI) }
+                        )
+                        .testTag("app_style_desert_dune_clay_ui")
+                ) {
+                    ThemeHeaderRowContent(
+                        title = "Desert Dune Clay UI",
+                        selected = isDesertClaySelected,
+                        rowHeight = 86.dp,
+                        leadingIcon = { DesertDuneClayIcon(modifier = Modifier.size(36.dp)) }
+                    )
+
+                    DesertDuneClayShowcasePreviewCard(
+                        isSelected = isDesertClaySelected,
+                        onSelect = { onSelectAppStyle(AppStyleOption.DESERT_DUNE_CLAY_UI) },
+                        modifier = Modifier
+                            .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                    )
+                }
+
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = NothingDividerLine
+                )
+
+                // 5. Enchanted Forest UI Row + Embedded Botanical Woodland Codex Showcase Card
+                val isEnchantedForestSelected = settings.appStyle == AppStyleOption.ENCHANTED_FOREST_UI
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(color = Color.White.copy(alpha = 0.14f)),
+                            onClick = { onSelectAppStyle(AppStyleOption.ENCHANTED_FOREST_UI) }
+                        )
+                        .testTag("app_style_enchanted_forest_ui")
+                ) {
+                    ThemeHeaderRowContent(
+                        title = "Enchanted Forest UI",
+                        selected = isEnchantedForestSelected,
+                        rowHeight = 86.dp,
+                        leadingIcon = { EnchantedForestBotanicalIcon(modifier = Modifier.size(36.dp)) }
+                    )
+
+                    EnchantedForestShowcasePreviewCard(
+                        isSelected = isEnchantedForestSelected,
+                        onSelect = { onSelectAppStyle(AppStyleOption.ENCHANTED_FOREST_UI) },
                         modifier = Modifier
                             .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
                     )
@@ -913,6 +990,411 @@ private fun JourneyAwaitsGalacticShowcasePreviewCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DesertDuneClayShowcasePreviewCard(
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val previewShape = RoundedCornerShape(20.dp)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(previewShape)
+            .background(
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        DesertClayCreamBase,
+                        Color(0xFFF3E2D0),
+                        DesertClaySoftApricot,
+                        Color(0xFFE9C9B1)
+                    )
+                )
+            )
+            .border(
+                width = if (isSelected) 2.2.dp else 1.2.dp,
+                brush = Brush.linearGradient(
+                    colors = if (isSelected) {
+                        listOf(DesertClayPeachTerracotta, Color.White, DesertClayCocoaBrown, DesertClayPeachTerracotta)
+                    } else {
+                        listOf(Color.White.copy(alpha = 0.85f), DesertClayPeachTerracotta.copy(alpha = 0.55f))
+                    }
+                ),
+                shape = previewShape
+            )
+            .clickable(onClick = onSelect)
+            .testTag("theme_desert_dune_clay_showcase_card")
+    ) {
+        // Subtle 3D Sand Dune Wave Ripples inside the preview card
+        Canvas(modifier = Modifier.matchParentSize()) {
+            val w = size.width
+            val h = size.height
+            val wave1 = Path().apply {
+                moveTo(0f, h * 0.62f)
+                cubicTo(w * 0.28f, h * 0.45f, w * 0.64f, h * 0.78f, w, h * 0.55f)
+                lineTo(w, h)
+                lineTo(0f, h)
+                close()
+            }
+            drawPath(
+                path = wave1,
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        DesertClayPeachTerracotta.copy(alpha = 0.22f),
+                        DesertClaySoftApricot.copy(alpha = 0.38f)
+                    )
+                )
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    // Warm 3D Clay Avatar Ring with 'P'
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(Color.White, DesertClaySoftApricot, DesertClayPeachTerracotta)
+                                )
+                            )
+                            .border(1.4.dp, Color.White, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "P",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
+                            color = DesertClayCocoaBrown
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "Good morning • Welcome back",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                            color = DesertClayCocoaBrown
+                        )
+                        Text(
+                            text = "Warm Peach 3D Clay • Sculpted Sand Ripples • Soft Pill Dock",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF7D5743)
+                        )
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                DesertClayCardElevated.copy(alpha = 0.94f),
+                                DesertClaySoftApricot.copy(alpha = 0.72f)
+                            )
+                        )
+                    )
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(Color.White, DesertClayPeachTerracotta.copy(alpha = 0.65f))
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "DESERT DUNE 3D CLAY EDITION",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            letterSpacing = 0.9.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 8.5.sp
+                        ),
+                        color = DesertClayPeachTerracotta
+                    )
+                    Text(
+                        text = "Open Your PDF • Creamy Sandstone & Terracotta Tactile Cards",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = DesertClayCocoaBrown
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(
+                            if (isSelected) DesertClayCocoaBrown else DesertClayPeachTerracotta
+                        )
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = if (isSelected) "Applied" else "Apply Clay UI",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EnchantedForestShowcasePreviewCard(
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val previewShape = RoundedCornerShape(20.dp)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(previewShape)
+            .background(
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        ForestDeepCanopy,
+                        Color(0xFF0E3426),
+                        Color(0xFF174936),
+                        Color(0xFF0A241A)
+                    )
+                )
+            )
+            .border(
+                width = if (isSelected) 2.2.dp else 1.2.dp,
+                brush = Brush.linearGradient(
+                    colors = if (isSelected) {
+                        listOf(ForestSunlightGold, ForestParchmentCream, ForestSageGreen, ForestSunlightGold)
+                    } else {
+                        listOf(ForestParchmentCream.copy(alpha = 0.65f), ForestSageGreen.copy(alpha = 0.50f))
+                    }
+                ),
+                shape = previewShape
+            )
+            .clickable(onClick = onSelect)
+            .testTag("theme_enchanted_forest_showcase_card")
+    ) {
+        // Golden sunbeams & botanical firefly motes
+        Canvas(modifier = Modifier.matchParentSize()) {
+            val w = size.width
+            val h = size.height
+            val sunbeam = Path().apply {
+                moveTo(w * 0.12f, 0f)
+                lineTo(w * 0.44f, 0f)
+                lineTo(w * 0.85f, h)
+                lineTo(w * 0.42f, h)
+                close()
+            }
+            drawPath(
+                path = sunbeam,
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        ForestSunlightGold.copy(alpha = 0.24f),
+                        ForestFernGreen.copy(alpha = 0.10f),
+                        Color.Transparent
+                    )
+                )
+            )
+            drawCircle(
+                color = ForestSunlightGold.copy(alpha = 0.55f),
+                radius = 2.5.dp.toPx(),
+                center = Offset(w * 0.78f, h * 0.28f)
+            )
+            drawCircle(
+                color = ForestParchmentCream.copy(alpha = 0.45f),
+                radius = 1.8.dp.toPx(),
+                center = Offset(w * 0.66f, h * 0.44f)
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    // Botanical Leaf Crest Emblem
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF0A2319))
+                            .border(
+                                width = 1.3.dp,
+                                brush = Brush.linearGradient(
+                                    listOf(ForestSunlightGold, ForestSageGreen, ForestParchmentCream)
+                                ),
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        EnchantedForestBotanicalIcon(modifier = Modifier.size(22.dp))
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "Good morning • Welcome back",
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontFamily = MerriweatherSerifFamily,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = ForestParchmentCream
+                        )
+                        Text(
+                            text = "Read • Organize • Learn  •  Sunlit Woodland & Warm Parchment Dock",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFFD7E8D4)
+                        )
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                Color(0xFF143D2D).copy(alpha = 0.88f),
+                                ForestWarmSand.copy(alpha = 0.26f)
+                            )
+                        )
+                    )
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                ForestSunlightGold.copy(alpha = 0.80f),
+                                ForestSageGreen.copy(alpha = 0.70f)
+                            )
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "ENCHANTED FOREST BOTANICAL CODEX",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            letterSpacing = 0.9.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 8.5.sp
+                        ),
+                        color = ForestSunlightGold
+                    )
+                    Text(
+                        text = "Emerald Canopy Glass • Serif Headings • Parchment Pill Dock",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = ForestParchmentCream
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(
+                            if (isSelected) ForestParchmentCream.copy(alpha = 0.24f) else ForestSageGreen
+                        )
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = if (isSelected) "Applied" else "Apply Forest UI",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DesertDuneClayIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        // Warm sun disc
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(DesertClaySoftApricot, DesertClayPeachTerracotta)
+            ),
+            radius = w * 0.26f,
+            center = Offset(w * 0.65f, h * 0.32f)
+        )
+        // Front sculpted dune wave
+        val dunePath = Path().apply {
+            moveTo(w * 0.08f, h * 0.76f)
+            cubicTo(w * 0.30f, h * 0.46f, w * 0.58f, h * 0.52f, w * 0.92f, h * 0.76f)
+            lineTo(w * 0.86f, h * 0.86f)
+            lineTo(w * 0.14f, h * 0.86f)
+            close()
+        }
+        drawPath(
+            path = dunePath,
+            brush = Brush.horizontalGradient(
+                colors = listOf(DesertClayPeachTerracotta, DesertClaySoftApricot)
+            )
+        )
+    }
+}
+
+@Composable
+private fun EnchantedForestBotanicalIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val leafPath = Path().apply {
+            moveTo(w * 0.50f, h * 0.12f)
+            cubicTo(w * 0.86f, h * 0.28f, w * 0.84f, h * 0.72f, w * 0.50f, h * 0.88f)
+            cubicTo(w * 0.16f, h * 0.72f, w * 0.14f, h * 0.28f, w * 0.50f, h * 0.12f)
+            close()
+        }
+        drawPath(
+            path = leafPath,
+            brush = Brush.verticalGradient(
+                colors = listOf(ForestSunlightGold, ForestSageGreen, ForestFernGreen)
+            )
+        )
+        // Central leaf vein
+        drawLine(
+            color = ForestParchmentCream.copy(alpha = 0.85f),
+            start = Offset(w * 0.50f, h * 0.24f),
+            end = Offset(w * 0.50f, h * 0.82f),
+            strokeWidth = 1.6.dp.toPx(),
+            cap = StrokeCap.Round
+        )
     }
 }
 

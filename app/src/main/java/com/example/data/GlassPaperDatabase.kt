@@ -97,6 +97,9 @@ interface GlassPaperDao {
     @Query("DELETE FROM ai_chat_messages")
     suspend fun clearAllAiChatMessages()
 
+    @Query("DELETE FROM ai_chat_messages WHERE content LIKE '%Local Document Intelligence active%' OR content LIKE '%Here is how I can help with%'")
+    suspend fun deleteLegacyCannedAiChatMessages()
+
     // Danger Zone / History
     @Query("DELETE FROM pdf_documents")
     suspend fun clearAllDocuments()

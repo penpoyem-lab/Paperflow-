@@ -55,3 +55,33 @@ val NothingGlyphWhite = Color(0xFFF5F6F8)
 val NothingMatrixSilver = Color(0xFF9EA4B0)
 val NothingCircuitGray = Color(0xFF2A2E37)
 
+// Desert Dune Clay (3D Sandstone & Peach Claymorphism) Palette
+val DesertClayCreamBase = Color(0xFFF6ECE2)
+val DesertClayWarmSand = Color(0xFFECD8C6)
+val DesertClayCardSurface = Color(0xFFFDF8F3)
+val DesertClayCardElevated = Color(0xFFF7EBE0)
+val DesertClayPeachTerracotta = Color(0xFFEA8D59)
+val DesertClayDeepTerracotta = Color(0xFFD9723C)
+val DesertClaySoftApricot = Color(0xFFF7C39F)
+val DesertClayCocoaBrown = Color(0xFF753517)
+val DesertClayMutedBrown = Color(0xFF8C583A)
+val DesertClayMutedTaupe = DesertClayMutedBrown
+val DesertClayWarmAmber = DesertClayDeepTerracotta
+
+// Enchanted Forest Codex (Botanical Parchment & Woodland Canopy) Palette
+val ForestCanopyDeepGreen = Color(0xFF08241C)
+val ForestCanopyDarkMoss = Color(0xFF0F3528)
+val ForestParchmentLight = Color(0xFFEBE1CD)
+val ForestParchmentWarm = Color(0xFFDECFAF)
+val ForestSageGreen = Color(0xFF738B6A)
+val ForestDeepMossText = Color(0xFF142E22)
+val ForestCopperBark = Color(0xFFA96E3E)
+val ForestGoldenFern = Color(0xFFD2A868)
+val ForestDeepCanopy = ForestCanopyDeepGreen
+val ForestFernGreen = Color(0xFF2D6A4F)
+val ForestParchmentCream = ForestParchmentLight
+val ForestSunlightGold = ForestGoldenFern
+val ForestTerracottaClay = ForestCopperBark
+val ForestWarmSand = ForestParchmentWarm
+
+

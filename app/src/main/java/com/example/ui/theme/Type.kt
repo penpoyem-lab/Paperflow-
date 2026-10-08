@@ -214,3 +214,15 @@ val Typography = Typography(
         letterSpacing = 0.8.sp
     )
 )
+
+val MerriweatherSerifFamily = FontFamily.Serif
+
+val BotanicalForestTypography = Typography.copy(
+    displayLarge = Typography.displayLarge.copy(fontFamily = MerriweatherSerifFamily),
+    displayMedium = Typography.displayMedium.copy(fontFamily = MerriweatherSerifFamily),
+    headlineLarge = Typography.headlineLarge.copy(fontFamily = MerriweatherSerifFamily),
+    headlineMedium = Typography.headlineMedium.copy(fontFamily = MerriweatherSerifFamily),
+    titleLarge = Typography.titleLarge.copy(fontFamily = MerriweatherSerifFamily),
+    titleMedium = Typography.titleMedium.copy(fontFamily = MerriweatherSerifFamily)
+)
+

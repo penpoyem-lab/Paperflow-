@@ -78,7 +78,9 @@ import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Reorder
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -137,6 +139,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.ai.PaperflowAiService
+import com.example.ai.TranslationLanguageOption
 import com.example.data.PdfDocumentEntity
 import com.example.pdf.CompressionLevel
 import com.example.pdf.MergeFileEntry
@@ -194,7 +198,8 @@ val ALL_PDF_TOOLS: List<PdfToolSpec> = listOf(
     PdfToolSpec("unlock", "SECURITY", "Unlock PDF", "Remove password protection from a locked PDF", Icons.Filled.LockOpen, ElectricBlue),
     PdfToolSpec("metadata", "SECURITY", "Metadata", "Inspect document properties, size & paths", Icons.Filled.Info, LiquidCyan),
 
-    // CONVERT (Teal / Emerald Green accents)
+    // CONVERT (Teal / Emerald Green / Cyan accents)
+    PdfToolSpec("translate_pdf", "CONVERT", "Translate PDF", "Translate any PDF from any language to any language with AI", Icons.Filled.Translate, LiquidCyan, isAvailableOffline = false),
     PdfToolSpec("pdf_to_image", "CONVERT", "PDF to Image", "Export PDF pages as high-res PNG images", Icons.Filled.Image, CrystalTeal),
     PdfToolSpec("image_to_pdf", "CONVERT", "Image to PDF", "Convert photos into a clean PDF document", Icons.Filled.PictureAsPdf, EmeraldGreen),
     PdfToolSpec("extract_images", "CONVERT", "Extract Images", "Save rendered visual plates from PDF", Icons.Filled.Collections, CrystalTeal),
@@ -447,19 +452,15 @@ fun ToolWorkspaceOverlay(
         ALL_PDF_TOOLS.firstOrNull { it.id == toolId } ?: ALL_PDF_TOOLS.first()
     }
 
-    // Active target document for single-PDF tools (starts null if user wants the "Select PDF Files" dropzone, or pre-populates if they pick)
-    var selectedPrimaryDoc by remember { mutableStateOf<PdfDocumentEntity?>(documents.firstOrNull()) }
-    var showLibraryPickerModal by remember { mutableStateOf(false) }
+    // Active target document for single-PDF tools (always starts null so the user explicitly chooses their PDF file)
+    var selectedPrimaryDoc by remember(toolId) { mutableStateOf<PdfDocumentEntity?>(null) }
+    var showLibraryPickerModal by remember(toolId) { mutableStateOf(false) }
 
-    // Merge PDF Queue State
-    val mergeQueue = remember {
-        mutableStateListOf<MergeQueueItem>().apply {
-            documents.take(2).forEachIndexed { idx, d ->
-                add(MergeQueueItem(key = System.nanoTime() + idx, doc = d, rotationDegrees = 0))
-            }
-        }
+    // Merge PDF Queue State (always starts empty so no default PDFs are pre-populated)
+    val mergeQueue = remember(toolId) {
+        mutableStateListOf<MergeQueueItem>()
     }
-    var mergeOutputFilename by remember { mutableStateOf("paperflow-merged") }
+    var mergeOutputFilename by remember(toolId) { mutableStateOf("paperflow-merged") }
 
     // Split / Extract / Delete Page Selection State
     val selectedPagesZeroBased = remember(selectedPrimaryDoc?.id, toolId) {
@@ -600,6 +601,32 @@ fun ToolWorkspaceOverlay(
     // Image to PDF State
     val selectedImageUris = remember { mutableStateListOf<Uri>() }
     var imageToPdfOutputName by remember { mutableStateOf("paperflow-scanned") }
+
+    // Universal PDF Translation State (Every Language to Every Language)
+    var translateSourceLanguage by remember {
+        mutableStateOf(
+            PaperflowAiService.SUPPORTED_TRANSLATION_LANGUAGES.first() // Auto-Detect Language
+        )
+    }
+    var translateTargetLanguage by remember {
+        mutableStateOf(
+            PaperflowAiService.SUPPORTED_TRANSLATION_LANGUAGES.firstOrNull { it.code == "es" }
+                ?: PaperflowAiService.SUPPORTED_TRANSLATION_LANGUAGES[1]
+        )
+    }
+    var translatePreserveFormatting by remember { mutableStateOf(true) }
+    var translateBilingualMode by remember { mutableStateOf(false) }
+    var translateCustomTargetLanguage by remember { mutableStateOf("") }
+    var translateCustomSourceLanguage by remember { mutableStateOf("") }
+    var showLanguagePickerFor by remember { mutableStateOf<String?>(null) } // "SOURCE" or "TARGET"
+    var languageSearchQuery by remember { mutableStateOf("") }
+    var translateOutputName by remember(selectedPrimaryDoc?.id, translateTargetLanguage.code, translateCustomTargetLanguage) {
+        val targetTag = translateCustomTargetLanguage.trim().ifBlank { translateTargetLanguage.code }
+        mutableStateOf(
+            selectedPrimaryDoc?.title?.removeSuffix(".pdf")?.let { "$it-$targetTag" }
+                ?: "paperflow-translated-$targetTag"
+        )
+    }
 
     // System SAF Launchers
     val singlePdfLauncher = rememberLauncherForActivityResult(
@@ -1117,10 +1144,10 @@ fun ToolWorkspaceOverlay(
                             doc = activeDoc,
                             accentColor = tool.accentColor,
                             onSwitchOrClear = {
-                                if (documents.size > 1) {
+                                if (documents.isNotEmpty()) {
                                     showLibraryPickerModal = true
                                 } else {
-                                    selectedPrimaryDoc = null
+                                    singlePdfLauncher.launch(arrayOf("application/pdf"))
                                 }
                             },
                             onCloseFile = { selectedPrimaryDoc = null }
@@ -2393,6 +2420,393 @@ fun ToolWorkspaceOverlay(
                             }
                         }
                     }
+
+                    // ============================================================
+                    // UNIVERSAL AI PDF TRANSLATOR (Every Language to Every Language)
+                    // ============================================================
+                    "translate_pdf" -> {
+                        item {
+                            LiquidGlassPanel(
+                                modifier = Modifier.fillMaxWidth(),
+                                cornerRadius = 26.dp,
+                                tintColor = LiquidCyan
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(20.dp),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Translate,
+                                                contentDescription = null,
+                                                tint = LiquidCyan,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Text(
+                                                text = "UNIVERSAL LANGUAGE MATRIX (100+ LANGUAGES)",
+                                                style = MaterialTheme.typography.labelMedium.copy(
+                                                    letterSpacing = 1.1.sp,
+                                                    fontWeight = FontWeight.ExtraBold
+                                                ),
+                                                color = LiquidCyan
+                                            )
+                                        }
+                                    }
+
+                                    // Source Language <---> Swap <---> Target Language Selector Row
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        // FROM LANGUAGE CARD
+                                        Column(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(18.dp))
+                                                .background(
+                                                    if (glass.isDark) Color(0xFF060A12).copy(alpha = 0.82f)
+                                                    else Color.White.copy(alpha = 0.82f)
+                                                )
+                                                .border(
+                                                    width = 1.5.dp,
+                                                    color = LiquidCyan.copy(alpha = 0.65f),
+                                                    shape = RoundedCornerShape(18.dp)
+                                                )
+                                                .testTag("translate_source_lang_button")
+                                                .clickable {
+                                                    languageSearchQuery = ""
+                                                    showLanguagePickerFor = "SOURCE"
+                                                }
+                                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text(
+                                                text = "TRANSLATE FROM",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    letterSpacing = 0.9.sp,
+                                                    fontWeight = FontWeight.ExtraBold
+                                                ),
+                                                color = glass.textSecondary
+                                            )
+                                            Text(
+                                                text = if (translateCustomSourceLanguage.isNotBlank()) {
+                                                    "🌍 ${translateCustomSourceLanguage.trim()}"
+                                                } else {
+                                                    "${translateSourceLanguage.flag} ${translateSourceLanguage.name}"
+                                                },
+                                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                                color = glass.textPrimary,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = if (translateCustomSourceLanguage.isNotBlank()) {
+                                                    "Custom language"
+                                                } else {
+                                                    translateSourceLanguage.nativeName
+                                                },
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = LiquidCyan,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+
+                                        // SWAP LANGUAGES ORB BUTTON
+                                        Box(
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    Brush.linearGradient(
+                                                        colors = listOf(LiquidCyan, ElectricBlue, PrismPurple)
+                                                    )
+                                                )
+                                                .border(1.dp, Color.White.copy(alpha = 0.7f), CircleShape)
+                                                .testTag("translate_swap_languages_button")
+                                                .clickable {
+                                                    if (translateCustomSourceLanguage.isNotBlank() || translateCustomTargetLanguage.isNotBlank()) {
+                                                        val tmpCustom = translateCustomSourceLanguage
+                                                        translateCustomSourceLanguage = translateCustomTargetLanguage
+                                                        translateCustomTargetLanguage = tmpCustom.ifBlank {
+                                                            if (translateSourceLanguage.code == "auto") "English" else translateSourceLanguage.name
+                                                        }
+                                                    } else if (translateSourceLanguage.code != "auto") {
+                                                        val temp = translateSourceLanguage
+                                                        translateSourceLanguage = translateTargetLanguage
+                                                        translateTargetLanguage = temp
+                                                    } else {
+                                                        // If source was Auto-Detect, swap sets source to current target and target to English
+                                                        val english = PaperflowAiService.SUPPORTED_TRANSLATION_LANGUAGES
+                                                            .firstOrNull { it.code == "en" }
+                                                            ?: PaperflowAiService.SUPPORTED_TRANSLATION_LANGUAGES[1]
+                                                        translateSourceLanguage = translateTargetLanguage
+                                                        translateTargetLanguage = english
+                                                    }
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.SwapHoriz,
+                                                contentDescription = "Swap Languages",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
+
+                                        // TO LANGUAGE CARD
+                                        Column(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(18.dp))
+                                                .background(
+                                                    if (glass.isDark) Color(0xFF060A12).copy(alpha = 0.82f)
+                                                    else Color.White.copy(alpha = 0.82f)
+                                                )
+                                                .border(
+                                                    width = 1.5.dp,
+                                                    color = IridescentPink.copy(alpha = 0.75f),
+                                                    shape = RoundedCornerShape(18.dp)
+                                                )
+                                                .testTag("translate_target_lang_button")
+                                                .clickable {
+                                                    languageSearchQuery = ""
+                                                    showLanguagePickerFor = "TARGET"
+                                                }
+                                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text(
+                                                text = "TRANSLATE TO",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    letterSpacing = 0.9.sp,
+                                                    fontWeight = FontWeight.ExtraBold
+                                                ),
+                                                color = glass.textSecondary
+                                            )
+                                            Text(
+                                                text = if (translateCustomTargetLanguage.isNotBlank()) {
+                                                    "🌍 ${translateCustomTargetLanguage.trim()}"
+                                                } else {
+                                                    "${translateTargetLanguage.flag} ${translateTargetLanguage.name}"
+                                                },
+                                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                                color = glass.textPrimary,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = if (translateCustomTargetLanguage.isNotBlank()) {
+                                                    "Custom language"
+                                                } else {
+                                                    translateTargetLanguage.nativeName
+                                                },
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = IridescentPink,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+
+                                    // Quick Popular Target Language Chips
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(
+                                            text = "QUICK TARGET LANGUAGES",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                letterSpacing = 1.0.sp,
+                                                fontWeight = FontWeight.ExtraBold
+                                            ),
+                                            color = glass.textSecondary
+                                        )
+                                        val quickCodes = listOf("en", "es", "fr", "de", "hi", "bn", "ar", "zh-CN", "ja", "ko", "ru", "pt")
+                                        val quickLangs = remember {
+                                            PaperflowAiService.SUPPORTED_TRANSLATION_LANGUAGES.filter { it.code in quickCodes }
+                                        }
+                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            quickLangs.chunked(4).forEach { rowLangs ->
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    rowLangs.forEach { langOpt ->
+                                                        val isSelected = translateCustomTargetLanguage.isBlank() &&
+                                                            translateTargetLanguage.code == langOpt.code
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .weight(1f)
+                                                                .clip(RoundedCornerShape(12.dp))
+                                                                .background(
+                                                                    if (isSelected) LiquidCyan.copy(alpha = 0.24f)
+                                                                    else Color.White.copy(alpha = if (glass.isDark) 0.05f else 0.45f)
+                                                                )
+                                                                .border(
+                                                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                                                    color = if (isSelected) LiquidCyan else Color.White.copy(alpha = 0.28f),
+                                                                    shape = RoundedCornerShape(12.dp)
+                                                                )
+                                                                .clickable {
+                                                                    translateCustomTargetLanguage = ""
+                                                                    translateTargetLanguage = langOpt
+                                                                }
+                                                                .padding(vertical = 8.dp, horizontal = 4.dp),
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            Text(
+                                                                text = "${langOpt.flag} ${langOpt.name.substringBefore(" ")}",
+                                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                                    fontWeight = FontWeight.ExtraBold
+                                                                ),
+                                                                color = if (isSelected) LiquidCyan else glass.textPrimary,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Custom Any-Language Input (Supports ANY world dialect, regional language, or historical script)
+                                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text(
+                                            text = "CUSTOM TARGET LANGUAGE / DIALECT (OPTIONAL — ANY WORLD LANGUAGE)",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                letterSpacing = 0.9.sp,
+                                                fontWeight = FontWeight.ExtraBold
+                                            ),
+                                            color = glass.textSecondary
+                                        )
+                                        GlassOutlinedFilenameInput(
+                                            value = translateCustomTargetLanguage,
+                                            onValueChange = { translateCustomTargetLanguage = it },
+                                            placeholder = "e.g., Assamese, Bhojpuri, Cantonese, Kurdish, Sanskrit, Maori...",
+                                            accentColor = IridescentPink,
+                                            testTag = "translate_custom_language_input"
+                                        )
+                                    }
+
+                                    // Translation Mode Options: Preserve Structure & Bilingual Side-by-Side
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(14.dp))
+                                                .background(
+                                                    if (translatePreserveFormatting) EmeraldGreen.copy(alpha = 0.20f)
+                                                    else Color.White.copy(alpha = if (glass.isDark) 0.05f else 0.4f)
+                                                )
+                                                .border(
+                                                    width = if (translatePreserveFormatting) 1.5.dp else 1.dp,
+                                                    color = if (translatePreserveFormatting) EmeraldGreen else Color.White.copy(alpha = 0.3f),
+                                                    shape = RoundedCornerShape(14.dp)
+                                                )
+                                                .clickable { translatePreserveFormatting = !translatePreserveFormatting }
+                                                .padding(vertical = 12.dp, horizontal = 10.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = if (translatePreserveFormatting) "✓ Preserve Layout" else "Preserve Layout",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                                color = if (translatePreserveFormatting) EmeraldGreen else glass.textPrimary
+                                            )
+                                        }
+
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(14.dp))
+                                                .background(
+                                                    if (translateBilingualMode) PrismPurple.copy(alpha = 0.24f)
+                                                    else Color.White.copy(alpha = if (glass.isDark) 0.05f else 0.4f)
+                                                )
+                                                .border(
+                                                    width = if (translateBilingualMode) 1.5.dp else 1.dp,
+                                                    color = if (translateBilingualMode) PrismPurple else Color.White.copy(alpha = 0.3f),
+                                                    shape = RoundedCornerShape(14.dp)
+                                                )
+                                                .clickable { translateBilingualMode = !translateBilingualMode }
+                                                .padding(vertical = 12.dp, horizontal = 10.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = if (translateBilingualMode) "✓ Bilingual (Orig + Trans)" else "Translated Only",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                                color = if (translateBilingualMode) IridescentPink else glass.textPrimary
+                                            )
+                                        }
+                                    }
+
+                                    // Page Selection Controls (All pages by default, or custom subset)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "PAGES TO TRANSLATE (${selectedPagesZeroBased.size} OF ${activeDoc.pageCount})",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                letterSpacing = 1.0.sp,
+                                                fontWeight = FontWeight.ExtraBold
+                                            ),
+                                            color = glass.textSecondary
+                                        )
+                                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            Text(
+                                                text = "ALL PAGES",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                                color = LiquidCyan,
+                                                modifier = Modifier.clickable {
+                                                    selectedPagesZeroBased.clear()
+                                                    for (i in 0 until activeDoc.pageCount) selectedPagesZeroBased.add(i)
+                                                }
+                                            )
+                                            Text(
+                                                text = "FIRST PAGE ONLY",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                                color = IridescentPink,
+                                                modifier = Modifier.clickable {
+                                                    selectedPagesZeroBased.clear()
+                                                    if (activeDoc.pageCount > 0) selectedPagesZeroBased.add(0)
+                                                }
+                                            )
+                                        }
+                                    }
+
+                                    Text(
+                                        text = "OUTPUT PDF FILENAME",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            letterSpacing = 1.0.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        ),
+                                        color = glass.textSecondary
+                                    )
+                                    GlassOutlinedFilenameInput(
+                                        value = translateOutputName,
+                                        onValueChange = { translateOutputName = it },
+                                        placeholder = "${activeDoc.title.removeSuffix(".pdf")}-translated",
+                                        accentColor = LiquidCyan,
+                                        testTag = "translate_output_filename_input"
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -2498,6 +2912,13 @@ fun ToolWorkspaceOverlay(
                     buttonLabel = "CREATE PDF (${selectedImageUris.size} IMAGES)"
                     buttonIcon = Icons.AutoMirrored.Filled.ArrowForward
                     isButtonEnabled = selectedImageUris.isNotEmpty() && !toolState.isRunning
+                }
+                "translate_pdf" -> {
+                    val targetDisplay = translateCustomTargetLanguage.trim()
+                        .ifBlank { translateTargetLanguage.name.uppercase() }
+                    buttonLabel = "TRANSLATE TO $targetDisplay"
+                    buttonIcon = Icons.Filled.Translate
+                    isButtonEnabled = selectedPrimaryDoc != null && !toolState.isRunning
                 }
                 else -> {
                     buttonLabel = "RUN ${tool.title.uppercase()}"
@@ -2718,6 +3139,22 @@ fun ToolWorkspaceOverlay(
                                 "image_to_pdf" -> {
                                     viewModel.executeImageToPdf(selectedImageUris.toList(), imageToPdfOutputName)
                                 }
+                                "translate_pdf" -> {
+                                    activeDoc?.let { doc ->
+                                        val effectiveSource = translateCustomSourceLanguage.trim()
+                                            .ifBlank { translateSourceLanguage.name }
+                                        val effectiveTarget = translateCustomTargetLanguage.trim()
+                                            .ifBlank { translateTargetLanguage.name }
+                                        viewModel.executeTranslatePdf(
+                                            doc = doc,
+                                            sourceLanguage = effectiveSource,
+                                            targetLanguage = effectiveTarget,
+                                            selectedZeroBasedPages = selectedPagesZeroBased.sorted(),
+                                            includeOriginalBilingual = translateBilingualMode,
+                                            customOutputFilename = translateOutputName
+                                        )
+                                    }
+                                }
                             }
                         },
                     contentAlignment = Alignment.Center
@@ -2846,6 +3283,153 @@ fun ToolWorkspaceOverlay(
             },
             confirmButton = {
                 TextButton(onClick = { showLibraryPickerModal = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
+    if (showLanguagePickerFor != null) {
+        val isPickingSource = showLanguagePickerFor == "SOURCE"
+        val availableLanguages = remember(isPickingSource, languageSearchQuery) {
+            val baseList = if (isPickingSource) {
+                PaperflowAiService.SUPPORTED_TRANSLATION_LANGUAGES
+            } else {
+                PaperflowAiService.SUPPORTED_TRANSLATION_LANGUAGES.filter { it.code != "auto" }
+            }
+            if (languageSearchQuery.isBlank()) baseList
+            else baseList.filter {
+                it.name.contains(languageSearchQuery, ignoreCase = true) ||
+                    it.nativeName.contains(languageSearchQuery, ignoreCase = true) ||
+                    it.code.contains(languageSearchQuery, ignoreCase = true)
+            }
+        }
+
+        AlertDialog(
+            onDismissRequest = { showLanguagePickerFor = null },
+            title = {
+                Text(
+                    text = if (isPickingSource) "Select Source Language (Every Language)" else "Select Target Language (Every Language)",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    GlassOutlinedFilenameInput(
+                        value = languageSearchQuery,
+                        onValueChange = { languageSearchQuery = it },
+                        placeholder = "Search 100+ languages or type any dialect...",
+                        accentColor = if (isPickingSource) LiquidCyan else IridescentPink,
+                        testTag = "language_picker_search_input"
+                    )
+
+                    if (languageSearchQuery.isNotBlank() && availableLanguages.isEmpty()) {
+                        Button(
+                            onClick = {
+                                if (isPickingSource) {
+                                    translateCustomSourceLanguage = languageSearchQuery.trim()
+                                } else {
+                                    translateCustomTargetLanguage = languageSearchQuery.trim()
+                                }
+                                showLanguagePickerFor = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = PrismPurple)
+                        ) {
+                            Text("Use Custom Language: \"${languageSearchQuery.trim()}\"", color = Color.White)
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(290.dp)
+                    ) {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            items(availableLanguages, key = { it.code }) { langItem ->
+                                val isCurrent = if (isPickingSource) {
+                                    translateCustomSourceLanguage.isBlank() && translateSourceLanguage.code == langItem.code
+                                } else {
+                                    translateCustomTargetLanguage.isBlank() && translateTargetLanguage.code == langItem.code
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(
+                                            if (isCurrent) LiquidCyan.copy(alpha = 0.22f)
+                                            else ElectricBlue.copy(alpha = 0.09f)
+                                        )
+                                        .border(
+                                            width = if (isCurrent) 1.5.dp else 0.8.dp,
+                                            color = if (isCurrent) LiquidCyan else Color.White.copy(alpha = 0.22f),
+                                            shape = RoundedCornerShape(14.dp)
+                                        )
+                                        .clickable {
+                                            if (isPickingSource) {
+                                                translateCustomSourceLanguage = ""
+                                                translateSourceLanguage = langItem
+                                            } else {
+                                                translateCustomTargetLanguage = ""
+                                                translateTargetLanguage = langItem
+                                            }
+                                            showLanguagePickerFor = null
+                                        }
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            text = langItem.flag,
+                                            fontSize = 20.sp
+                                        )
+                                        Column {
+                                            Text(
+                                                text = langItem.name,
+                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                            )
+                                            Text(
+                                                text = "${langItem.nativeName} (${langItem.code})",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = glass.textSecondary
+                                            )
+                                        }
+                                    }
+                                    if (isCurrent) {
+                                        Icon(
+                                            imageVector = Icons.Filled.CheckCircle,
+                                            contentDescription = "Selected",
+                                            tint = LiquidCyan,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                if (languageSearchQuery.isNotBlank()) {
+                    TextButton(
+                        onClick = {
+                            if (isPickingSource) {
+                                translateCustomSourceLanguage = languageSearchQuery.trim()
+                            } else {
+                                translateCustomTargetLanguage = languageSearchQuery.trim()
+                            }
+                            showLanguagePickerFor = null
+                        }
+                    ) {
+                        Text("Use \"${languageSearchQuery.trim()}\"")
+                    }
+                }
+                TextButton(onClick = { showLanguagePickerFor = null }) {
                     Text("Close")
                 }
             }

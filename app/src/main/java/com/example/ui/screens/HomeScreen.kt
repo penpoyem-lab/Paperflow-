@@ -88,12 +88,27 @@ import com.example.ui.components.LiquidGlassDropdownMenu
 import com.example.ui.components.LiquidGlassDropdownMenuItem
 import com.example.ui.components.LiquidGlassPanel
 import com.example.ui.theme.CrystalTeal
+import com.example.ui.theme.DesertClayCardElevated
+import com.example.ui.theme.DesertClayCardSurface
+import com.example.ui.theme.DesertClayCocoaBrown
+import com.example.ui.theme.DesertClayMutedTaupe
+import com.example.ui.theme.DesertClayPeachTerracotta
+import com.example.ui.theme.DesertClaySoftApricot
+import com.example.ui.theme.DesertClayWarmAmber
 import com.example.ui.theme.ElectricBlue
 import com.example.ui.theme.EmeraldGreen
+import com.example.ui.theme.ForestDeepCanopy
+import com.example.ui.theme.ForestFernGreen
+import com.example.ui.theme.ForestParchmentCream
+import com.example.ui.theme.ForestSageGreen
+import com.example.ui.theme.ForestSunlightGold
+import com.example.ui.theme.ForestTerracottaClay
+import com.example.ui.theme.ForestWarmSand
 import com.example.ui.theme.IridescentPink
 import com.example.ui.theme.LiquidCyan
 import com.example.ui.theme.LiquidMagenta
 import com.example.ui.theme.LocalGlassColors
+import com.example.ui.theme.MerriweatherSerifFamily
 import com.example.ui.theme.NothingBrightRed
 import com.example.ui.theme.NothingCrimsonRed
 import com.example.ui.theme.NothingDotMatrixFamily
@@ -314,6 +329,99 @@ fun HomeScreen(
                                     fontSize = 12.5.sp
                                 ),
                                 color = Color(0xFFCBD5E1),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        } else if (glass.isDesertDuneClay) {
+                            Text(
+                                text = stringResource(R.string.greeting_morning),
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 13.5.sp
+                                ),
+                                color = DesertClayMutedTaupe,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = if (authSession.isAuthenticated && authSession.userFullName.isNotBlank()) {
+                                        "Welcome, ${authSession.userFullName.substringBefore(" ")}"
+                                    } else {
+                                        stringResource(R.string.greeting_welcome)
+                                    },
+                                    style = MaterialTheme.typography.headlineLarge.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 19.sp
+                                    ),
+                                    color = DesertClayCocoaBrown,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Icon(
+                                    imageVector = Icons.Filled.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = DesertClayPeachTerracotta,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(1.dp))
+                            Text(
+                                text = stringResource(R.string.subtitle_home),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 11.5.sp
+                                ),
+                                color = DesertClayMutedTaupe,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        } else if (glass.isEnchantedForestCodex) {
+                            Text(
+                                text = stringResource(R.string.greeting_morning),
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 13.5.sp
+                                ),
+                                color = Color(0xFFD7E8D4),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = if (authSession.isAuthenticated && authSession.userFullName.isNotBlank()) {
+                                        "Welcome, ${authSession.userFullName.substringBefore(" ")}"
+                                    } else {
+                                        stringResource(R.string.greeting_welcome)
+                                    },
+                                    style = MaterialTheme.typography.headlineLarge.copy(
+                                        fontFamily = MerriweatherSerifFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 19.sp
+                                    ),
+                                    color = ForestParchmentCream,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Icon(
+                                    imageVector = Icons.Filled.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = ForestSunlightGold,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(1.dp))
+                            Text(
+                                text = stringResource(R.string.subtitle_home),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 11.5.sp
+                                ),
+                                color = Color(0xFFD7E8D4),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -554,8 +662,16 @@ fun HomeScreen(
                             title = stringResource(R.string.action_view_pdf),
                             subtitle = stringResource(R.string.action_view_pdf_sub),
                             icon = Icons.Filled.Description,
-                            primaryTint = ElectricBlue,
-                            secondaryTint = LiquidCyan,
+                            primaryTint = when {
+                                glass.isDesertDuneClay -> DesertClayPeachTerracotta
+                                glass.isEnchantedForestCodex -> ForestSageGreen
+                                else -> ElectricBlue
+                            },
+                            secondaryTint = when {
+                                glass.isDesertDuneClay -> DesertClaySoftApricot
+                                glass.isEnchantedForestCodex -> ForestFernGreen
+                                else -> LiquidCyan
+                            },
                             onClick = onOpenSelectPdf,
                             testTag = "quick_action_view_pdf"
                         )
@@ -563,8 +679,16 @@ fun HomeScreen(
                             title = stringResource(R.string.action_add_notes),
                             subtitle = stringResource(R.string.action_add_notes_sub),
                             icon = Icons.Filled.Edit,
-                            primaryTint = IridescentPink,
-                            secondaryTint = PrismPurple,
+                            primaryTint = when {
+                                glass.isDesertDuneClay -> DesertClayWarmAmber
+                                glass.isEnchantedForestCodex -> ForestTerracottaClay
+                                else -> IridescentPink
+                            },
+                            secondaryTint = when {
+                                glass.isDesertDuneClay -> DesertClayPeachTerracotta
+                                glass.isEnchantedForestCodex -> ForestSunlightGold
+                                else -> PrismPurple
+                            },
                             onClick = onOpenNotes,
                             testTag = "quick_action_add_notes"
                         )
@@ -572,8 +696,16 @@ fun HomeScreen(
                             title = stringResource(R.string.action_bookmarks),
                             subtitle = stringResource(R.string.action_bookmarks_sub),
                             icon = Icons.Filled.Bookmark,
-                            primaryTint = CrystalTeal,
-                            secondaryTint = EmeraldGreen,
+                            primaryTint = when {
+                                glass.isDesertDuneClay -> Color(0xFFD98A6C)
+                                glass.isEnchantedForestCodex -> ForestSunlightGold
+                                else -> CrystalTeal
+                            },
+                            secondaryTint = when {
+                                glass.isDesertDuneClay -> DesertClaySoftApricot
+                                glass.isEnchantedForestCodex -> ForestSageGreen
+                                else -> EmeraldGreen
+                            },
                             onClick = onOpenBookmarks,
                             testTag = "quick_action_bookmarks"
                         )
@@ -581,8 +713,16 @@ fun HomeScreen(
                             title = stringResource(R.string.action_recent),
                             subtitle = stringResource(R.string.action_recent_sub),
                             icon = Icons.Filled.History,
-                            primaryTint = SolarAmber,
-                            secondaryTint = IridescentPink,
+                            primaryTint = when {
+                                glass.isDesertDuneClay -> DesertClayCocoaBrown
+                                glass.isEnchantedForestCodex -> ForestFernGreen
+                                else -> SolarAmber
+                            },
+                            secondaryTint = when {
+                                glass.isDesertDuneClay -> DesertClayPeachTerracotta
+                                glass.isEnchantedForestCodex -> ForestSageGreen
+                                else -> IridescentPink
+                            },
                             onClick = {
                                 val mostRecent = documents.firstOrNull()
                                 if (mostRecent != null) {
@@ -735,6 +875,18 @@ private fun HeroOpenPdfCard(
                 .background(
                     brush = Brush.linearGradient(
                         colors = when {
+                            glass.isDesertDuneClay -> listOf(
+                                DesertClayCardElevated.copy(alpha = 0.94f),
+                                DesertClaySoftApricot.copy(alpha = 0.88f),
+                                DesertClayPeachTerracotta.copy(alpha = 0.72f),
+                                Color(0xFFE7B696).copy(alpha = 0.90f)
+                            )
+                            glass.isEnchantedForestCodex -> listOf(
+                                ForestDeepCanopy.copy(alpha = 0.82f),
+                                Color(0xFF133A2A).copy(alpha = 0.76f),
+                                ForestFernGreen.copy(alpha = 0.48f),
+                                Color(0xFF283618).copy(alpha = 0.78f)
+                            )
                             glass.isNothingOs -> listOf(
                                 Color(0xFF0A0C10).copy(alpha = 0.80f),
                                 Color(0xFF161922).copy(alpha = 0.72f),
@@ -783,6 +935,16 @@ private fun HeroOpenPdfCard(
                     width = 1.6.dp,
                     brush = Brush.linearGradient(
                         colors = when {
+                            glass.isDesertDuneClay -> listOf(
+                                Color.White,
+                                DesertClayPeachTerracotta.copy(alpha = 0.75f),
+                                Color.White.copy(alpha = 0.90f)
+                            )
+                            glass.isEnchantedForestCodex -> listOf(
+                                ForestSunlightGold.copy(alpha = 0.85f),
+                                ForestParchmentCream.copy(alpha = 0.75f),
+                                ForestSageGreen.copy(alpha = 0.80f)
+                            )
                             glass.isNothingOs -> listOf(
                                 Color.White.copy(alpha = 0.92f),
                                 NothingCrimsonRed.copy(alpha = 0.90f),
@@ -821,8 +983,15 @@ private fun HeroOpenPdfCard(
                     .shadow(
                         16.dp,
                         RoundedCornerShape(24.dp),
-                        ambientColor = if (glass.isNothingOs) NothingCrimsonRed else LiquidCyan,
+                        ambientColor = when {
+                            glass.isDesertDuneClay -> DesertClayPeachTerracotta
+                            glass.isEnchantedForestCodex -> ForestSageGreen
+                            glass.isNothingOs -> NothingCrimsonRed
+                            else -> LiquidCyan
+                        },
                         spotColor = when {
+                            glass.isDesertDuneClay -> DesertClayWarmAmber
+                            glass.isEnchantedForestCodex -> ForestSunlightGold
                             glass.isNothingOs -> Color.White
                             glass.isGalacticCodex -> WarmGold
                             else -> IridescentPink
@@ -832,6 +1001,16 @@ private fun HeroOpenPdfCard(
                     .background(
                         brush = Brush.linearGradient(
                             colors = when {
+                                glass.isDesertDuneClay -> listOf(
+                                    DesertClayPeachTerracotta,
+                                    DesertClaySoftApricot,
+                                    DesertClayWarmAmber
+                                )
+                                glass.isEnchantedForestCodex -> listOf(
+                                    ForestSageGreen,
+                                    ForestFernGreen,
+                                    Color(0xFF1B4332)
+                                )
                                 glass.isNothingOs -> listOf(
                                     Color(0xFF1C2029).copy(alpha = 0.90f),
                                     NothingCrimsonRed.copy(alpha = 0.82f),
@@ -856,6 +1035,8 @@ private fun HeroOpenPdfCard(
                         width = 1.8.dp,
                         brush = Brush.linearGradient(
                             colors = when {
+                                glass.isDesertDuneClay -> listOf(Color.White, DesertClaySoftApricot, Color.White)
+                                glass.isEnchantedForestCodex -> listOf(ForestParchmentCream, ForestSunlightGold, ForestSageGreen)
                                 glass.isNothingOs -> listOf(Color.White, NothingCrimsonRed, Color.White)
                                 glass.isGalacticCodex -> listOf(Color.White, LiquidCyan, WarmGold)
                                 else -> listOf(Color.White, LiquidCyan, Color.White)
@@ -897,6 +1078,9 @@ private fun HeroOpenPdfCard(
 
             Spacer(modifier = Modifier.width(14.dp))
 
+            val heroPrimaryTextColor = if (glass.isDesertDuneClay) DesertClayCocoaBrown else Color.White
+            val heroSecondaryTextColor = if (glass.isDesertDuneClay) DesertClayCocoaBrown.copy(alpha = 0.84f) else Color.White.copy(alpha = 0.92f)
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = if (glass.isNothingOs) "NOTHING // GLYPH READER" else stringResource(R.string.hero_badge),
@@ -905,7 +1089,12 @@ private fun HeroOpenPdfCard(
                         fontWeight = FontWeight.Bold,
                         fontSize = 10.sp
                     ),
-                    color = if (glass.isNothingOs) NothingCrimsonRed else Color.White.copy(alpha = 0.88f)
+                    color = when {
+                        glass.isNothingOs -> NothingCrimsonRed
+                        glass.isDesertDuneClay -> DesertClayCocoaBrown.copy(alpha = 0.75f)
+                        glass.isEnchantedForestCodex -> ForestSunlightGold
+                        else -> Color.White.copy(alpha = 0.88f)
+                    }
                 )
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
@@ -915,10 +1104,11 @@ private fun HeroOpenPdfCard(
                         else -> stringResource(R.string.hero_title)
                     },
                     style = MaterialTheme.typography.headlineLarge.copy(
+                        fontFamily = if (glass.isEnchantedForestCodex) MerriweatherSerifFamily else MaterialTheme.typography.headlineLarge.fontFamily,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = if (glass.isGalacticCodex || glass.isNothingOs) 19.sp else 22.sp
                     ),
-                    color = Color.White
+                    color = heroPrimaryTextColor
                 )
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
@@ -928,7 +1118,7 @@ private fun HeroOpenPdfCard(
                         else -> stringResource(R.string.hero_subtitle)
                     },
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-                    color = Color.White.copy(alpha = 0.92f)
+                    color = heroSecondaryTextColor
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -939,6 +1129,14 @@ private fun HeroOpenPdfCard(
                         .background(
                             brush = Brush.horizontalGradient(
                                 colors = when {
+                                    glass.isDesertDuneClay -> listOf(
+                                        DesertClayPeachTerracotta,
+                                        DesertClaySoftApricot
+                                    )
+                                    glass.isEnchantedForestCodex -> listOf(
+                                        ForestParchmentCream,
+                                        ForestWarmSand
+                                    )
                                     glass.isNothingOs -> listOf(
                                         NothingCrimsonRed.copy(alpha = 0.88f),
                                         Color(0xFF1F2430).copy(alpha = 0.85f)
@@ -957,10 +1155,11 @@ private fun HeroOpenPdfCard(
                         .border(
                             width = 1.3.dp,
                             brush = Brush.horizontalGradient(
-                                colors = if (glass.isNothingOs) {
-                                    listOf(Color.White.copy(alpha = 0.95f), NothingCrimsonRed.copy(alpha = 0.90f))
-                                } else {
-                                    listOf(Color.White.copy(alpha = 0.90f), LiquidCyan.copy(alpha = 0.85f))
+                                colors = when {
+                                    glass.isDesertDuneClay -> listOf(Color.White, DesertClayPeachTerracotta)
+                                    glass.isEnchantedForestCodex -> listOf( Color.White, ForestSunlightGold)
+                                    glass.isNothingOs -> listOf(Color.White.copy(alpha = 0.95f), NothingCrimsonRed.copy(alpha = 0.90f))
+                                    else -> listOf(Color.White.copy(alpha = 0.90f), LiquidCyan.copy(alpha = 0.85f))
                                 }
                             ),
                             shape = RoundedCornerShape(50)
@@ -970,16 +1169,17 @@ private fun HeroOpenPdfCard(
                         .padding(horizontal = 18.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val btnTextColor = if (glass.isEnchantedForestCodex) ForestDeepCanopy else Color.White
                     Text(
                         text = stringResource(R.string.btn_open_file),
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                        color = Color.White
+                        color = btnTextColor
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = btnTextColor,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -988,7 +1188,7 @@ private fun HeroOpenPdfCard(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
-                tint = Color.White.copy(alpha = 0.85f),
+                tint = heroPrimaryTextColor.copy(alpha = 0.85f),
                 modifier = Modifier.size(26.dp)
             )
         }
@@ -1023,6 +1223,16 @@ private fun QuickActionGlassCard(
             .background(
                 brush = Brush.linearGradient(
                     colors = when {
+                        glass.isDesertDuneClay -> listOf(
+                            DesertClayCardElevated,
+                            DesertClayCardSurface,
+                            primaryTint.copy(alpha = 0.25f)
+                        )
+                        glass.isEnchantedForestCodex -> listOf(
+                            Color(0xFF143C2C).copy(alpha = 0.90f),
+                            primaryTint.copy(alpha = 0.26f),
+                            ForestDeepCanopy.copy(alpha = 0.92f)
+                        )
                         glass.isGalacticCodex -> listOf(
                             primaryTint.copy(alpha = 0.32f),
                             secondaryTint.copy(alpha = 0.22f),
