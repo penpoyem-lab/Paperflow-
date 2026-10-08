@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,12 +25,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
@@ -57,10 +62,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.auth.AuthSessionState
 import com.example.data.AppSettings
 import com.example.data.AppThemeOption
@@ -80,6 +88,7 @@ import com.example.ui.theme.LocalGlassColors
 import com.example.ui.theme.PrismPurple
 import com.example.ui.theme.PrismViolet
 import com.example.ui.theme.SolarAmber
+import com.example.ui.theme.WarmGold
 
 @Composable
 fun SettingsScreen(
@@ -196,7 +205,17 @@ fun SettingsScreen(
             }
         }
 
-        // 1. APPEARANCE
+        // 1. PHOTO THEMES & VISUAL EDITIONS (NEW SECTION)
+        item {
+            SettingsSectionHeader("PHOTO THEMES & VISUAL EDITIONS", WarmGold)
+            Spacer(modifier = Modifier.height(8.dp))
+            GalacticCodexPhotoThemeCard(
+                selectedTheme = settings.appTheme,
+                onSelectTheme = { viewModel.setAppTheme(it) }
+            )
+        }
+
+        // 2. APPEARANCE
         item {
             SettingsSectionHeader("APPEARANCE", ElectricBlue)
             Spacer(modifier = Modifier.height(8.dp))
@@ -220,10 +239,11 @@ fun SettingsScreen(
                         options = listOf(
                             AppThemeOption.LIGHT to "Light",
                             AppThemeOption.DARK to "Dark",
-                            AppThemeOption.SYSTEM to "System"
+                            AppThemeOption.SYSTEM to "System",
+                            AppThemeOption.GALACTIC_CODEX to "Galactic"
                         ),
                         selected = settings.appTheme,
-                        accentColor = ElectricBlue,
+                        accentColor = if (settings.appTheme == AppThemeOption.GALACTIC_CODEX) WarmGold else ElectricBlue,
                         onSelect = { viewModel.setAppTheme(it) }
                     )
 
@@ -592,6 +612,261 @@ fun SettingsScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun GalacticCodexPhotoThemeCard(
+    selectedTheme: AppThemeOption,
+    onSelectTheme: (AppThemeOption) -> Unit
+) {
+    val glass = LocalGlassColors.current
+    val isGalacticSelected = selectedTheme == AppThemeOption.GALACTIC_CODEX
+
+    LiquidGlassPanel(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("settings_photo_theme_section"),
+        cornerRadius = 28.dp,
+        tintColor = WarmGold
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Change Theme Section",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = glass.textPrimary
+                    )
+                    Text(
+                        text = "Select the Galactic Scholar cosmic photo theme or classic Liquid Glass editions",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = glass.textSecondary
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Filled.Palette,
+                    contentDescription = "Theme Gallery",
+                    tint = WarmGold,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            // Interactive Photo Theme Showcase Card — "Galactic Scholar • Cosmic Codex"
+            val previewShape = RoundedCornerShape(24.dp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(previewShape)
+                    .border(
+                        width = if (isGalacticSelected) 2.2.dp else 1.3.dp,
+                        brush = Brush.linearGradient(
+                            colors = if (isGalacticSelected) {
+                                listOf(WarmGold, Color.White, LiquidCyan, WarmGold)
+                            } else {
+                                listOf(Color.White.copy(alpha = 0.65f), WarmGold.copy(alpha = 0.45f))
+                            }
+                        ),
+                        shape = previewShape
+                    )
+                    .testTag("settings_galactic_codex_theme_card")
+                    .clickable { onSelectTheme(AppThemeOption.GALACTIC_CODEX) }
+            ) {
+                // Cosmic Nebula & Swirling Gold-Teal Liquid Glass Photo Art
+                Image(
+                    painter = painterResource(id = R.drawable.img_hero_galactic_codex_1791427754468),
+                    contentDescription = "Galactic Scholar Photo Theme Preview",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .matchParentSize()
+                )
+
+                // Dark Cosmic Scrim for crisp legibility
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFF050811).copy(alpha = 0.68f),
+                                    Color(0xFF0B1522).copy(alpha = 0.56f),
+                                    Color(0xFF1A1208).copy(alpha = 0.82f)
+                                )
+                            )
+                        )
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Mini Preview of the Galactic Scholar Header ("Galaxy Explorer" P orb + "Journey Awaits, Galactic Scholar")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF0F172A).copy(alpha = 0.85f))
+                                    .border(
+                                        width = 1.2.dp,
+                                        brush = Brush.linearGradient(listOf(Color.White, LiquidCyan, PrismViolet)),
+                                        shape = CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            brush = Brush.radialGradient(
+                                                colors = listOf(Color.White, LiquidCyan, PrismViolet)
+                                            )
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "P",
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.ExtraBold),
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Journey Awaits, Galactic Scholar",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                    color = Color.White
+                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                ) {
+                                    Text(
+                                        text = "Read • Organize • Learn",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color(0xFFCBD5E1)
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Filled.Diamond,
+                                        contentDescription = null,
+                                        tint = LiquidCyan,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Filled.LocalFireDepartment,
+                                        contentDescription = null,
+                                        tint = WarmGold,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        if (isGalacticSelected) {
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(WarmGold)
+                                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.CheckCircle,
+                                    contentDescription = "Active Theme",
+                                    tint = Color(0xFF1E1306),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Active",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                    color = Color(0xFF1E1306)
+                                )
+                            }
+                        }
+                    }
+
+                    // Mini "Discover Your Codex" Glass Preview Strip
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(
+                                brush = Brush.horizontalGradient(
+                                    colors = listOf(
+                                        Color(0xFF0E3A47).copy(alpha = 0.65f),
+                                        Color(0xFF451A03).copy(alpha = 0.60f)
+                                    )
+                                )
+                            )
+                            .border(
+                                width = 1.dp,
+                                brush = Brush.horizontalGradient(
+                                    colors = listOf(WarmGold.copy(alpha = 0.85f), LiquidCyan.copy(alpha = 0.75f))
+                                ),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "GALACTIC CODEX PHOTO THEME",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    letterSpacing = 1.1.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 9.5.sp
+                                ),
+                                color = WarmGold
+                            )
+                            Text(
+                                text = "Discover Your Codex • Starfield & Golden Glass Bar",
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = Color.White
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(
+                                    if (isGalacticSelected) {
+                                        Color.White.copy(alpha = 0.22f)
+                                    } else {
+                                        WarmGold
+                                    }
+                                )
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = if (isGalacticSelected) "Applied" else "Apply Theme",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = if (isGalacticSelected) Color.White else Color(0xFF1E1306)
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

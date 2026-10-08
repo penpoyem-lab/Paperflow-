@@ -2,6 +2,7 @@ package com.example.pdf
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorMatrix
@@ -22,6 +23,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.security.MessageDigest
 
 data class PdfFileMetadata(
     val pageCount: Int,
@@ -30,10 +32,44 @@ data class PdfFileMetadata(
     val errorMessage: String? = null
 )
 
+data class MergeFileEntry(
+    val filePath: String,
+    val title: String,
+    val pageCount: Int,
+    val fileSizeBytes: Long,
+    val rotationDegrees: Int = 0,
+    val searchableText: String = ""
+)
+
+data class WatermarkConfig(
+    val text: String,
+    val colorArgb: Int = Color.rgb(59, 130, 246),
+    val opacityPercent: Int = 30, // 5..100
+    val fontSizePx: Float = 50f,  // 16..120
+    val rotationDegrees: Float = -45f, // -90..90
+    val outputFilename: String = ""
+)
+
+data class SignatureStampConfig(
+    val targetPageIndex: Int = 0, // 0-based page index
+    val normalizedPositionX: Float = 0.68f, // 0f..1f center x on page
+    val normalizedPositionY: Float = 0.82f, // 0f..1f center y on page
+    val normalizedWidth: Float = 0.34f,
+    val normalizedHeight: Float = 0.14f,
+    val strokePoints: List<Pair<Float, Float>> = emptyList(),
+    val uploadedSignatureUri: Uri? = null,
+    val inkColorArgb: Int = Color.rgb(37, 99, 235),
+    val outputFilename: String = ""
+)
+
 object PdfEngine {
     private val renderMutex = Mutex()
 
-    private val thumbnailCache = object : LruCache<String, Bitmap>(24) {
+    private val thumbnailCache = object : LruCache<String, Bitmap>(48) {
+        override fun sizeOf(key: String, value: Bitmap): Int = 1
+    }
+
+    private val highResPageCache = object : LruCache<String, Bitmap>(16) {
         override fun sizeOf(key: String, value: Bitmap): Int = 1
     }
 
@@ -112,7 +148,11 @@ object PdfEngine {
         pageIndex: Int,
         targetWidth: Int = 1280
     ): Bitmap? = withContext(Dispatchers.IO) {
+        val cacheKey = "$pathOrUri#hi#$pageIndex#$targetWidth"
+        highResPageCache.get(cacheKey)?.let { if (!it.isRecycled) return@withContext it }
+
         renderMutex.withLock {
+            highResPageCache.get(cacheKey)?.let { if (!it.isRecycled) return@withLock it }
             try {
                 val pfd = openParcelFileDescriptor(context, pathOrUri) ?: return@withLock null
                 pfd.use { descriptor ->
@@ -125,6 +165,7 @@ object PdfEngine {
                             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                             bitmap.eraseColor(Color.WHITE)
                             page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                            highResPageCache.put(cacheKey, bitmap)
                             bitmap
                         }
                     }
@@ -158,21 +199,27 @@ object PdfEngine {
     private fun getOutputFile(context: Context, prefix: String, baseName: String): File {
         val dir = File(context.filesDir, "processed_pdfs")
         if (!dir.exists()) dir.mkdirs()
-        val cleanBase = baseName.removeSuffix(".pdf").replace(Regex("[^a-zA-Z0-9._\\- ]"), "_")
-        return File(dir, "${cleanBase}_${prefix}_${System.currentTimeMillis() % 10000}.pdf")
+        val cleanBase = baseName
+            .removeSuffix(".pdf")
+            .removeSuffix(".PDF")
+            .replace(Regex("[^a-zA-Z0-9._\\- ]"), "_")
+            .ifBlank { "paperflow_output" }
+        val suffixPart = if (prefix.isNotBlank()) "_$prefix" else ""
+        return File(dir, "${cleanBase}${suffixPart}_${System.currentTimeMillis() % 10000}.pdf")
     }
 
-    suspend fun mergePdfs(
+    suspend fun mergePdfsWithRotations(
         context: Context,
-        sourcePaths: List<String>,
+        entries: List<MergeFileEntry>,
         outputTitle: String
     ): File? = withContext(Dispatchers.IO) {
         renderMutex.withLock {
             try {
                 val outPdf = PdfDocument()
                 var globalPageNum = 1
-                for (path in sourcePaths) {
-                    val pfd = openParcelFileDescriptor(context, path) ?: continue
+                for (entry in entries) {
+                    val pfd = openParcelFileDescriptor(context, entry.filePath) ?: continue
+                    val normalizedDeg = ((entry.rotationDegrees % 360) + 360) % 360
                     pfd.use { descriptor ->
                         PdfRenderer(descriptor).use { renderer ->
                             for (i in 0 until renderer.pageCount) {
@@ -183,10 +230,24 @@ object PdfEngine {
                                     bmp.eraseColor(Color.WHITE)
                                     srcPage.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
 
-                                    val pageInfo = PdfDocument.PageInfo.Builder(w, h, globalPageNum++).create()
+                                    val finalBmp = if (normalizedDeg != 0) {
+                                        val matrix = Matrix().apply { postRotate(normalizedDeg.toFloat()) }
+                                        Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, matrix, true)
+                                    } else bmp
+
+                                    val newW = if (normalizedDeg == 90 || normalizedDeg == 270) h else w
+                                    val newH = if (normalizedDeg == 90 || normalizedDeg == 270) w else h
+
+                                    val pageInfo = PdfDocument.PageInfo.Builder(newW, newH, globalPageNum++).create()
                                     val destPage = outPdf.startPage(pageInfo)
-                                    destPage.canvas.drawBitmap(bmp, null, RectF(0f, 0f, w.toFloat(), h.toFloat()), Paint(Paint.FILTER_BITMAP_FLAG))
+                                    destPage.canvas.drawBitmap(
+                                        finalBmp,
+                                        null,
+                                        RectF(0f, 0f, newW.toFloat(), newH.toFloat()),
+                                        Paint(Paint.FILTER_BITMAP_FLAG)
+                                    )
                                     outPdf.finishPage(destPage)
+                                    if (finalBmp != bmp) finalBmp.recycle()
                                     bmp.recycle()
                                 }
                             }
@@ -197,7 +258,7 @@ object PdfEngine {
                     outPdf.close()
                     return@withLock null
                 }
-                val outFile = getOutputFile(context, "Merged", outputTitle)
+                val outFile = getOutputFile(context, "", outputTitle)
                 FileOutputStream(outFile).use { outPdf.writeTo(it) }
                 outPdf.close()
                 outFile
@@ -207,12 +268,23 @@ object PdfEngine {
         }
     }
 
+    suspend fun mergePdfs(
+        context: Context,
+        sourcePaths: List<String>,
+        outputTitle: String
+    ): File? = mergePdfsWithRotations(
+        context = context,
+        entries = sourcePaths.map { MergeFileEntry(filePath = it, title = outputTitle, pageCount = 0, fileSizeBytes = 0L) },
+        outputTitle = outputTitle
+    )
+
     suspend fun extractOrSplitPages(
         context: Context,
         sourcePath: String,
         sourceTitle: String,
         selectedZeroBasedPages: List<Int>,
-        suffixLabel: String = "Extracted"
+        suffixLabel: String = "Extracted",
+        customOutputFilename: String = ""
     ): File? = withContext(Dispatchers.IO) {
         renderMutex.withLock {
             try {
@@ -244,7 +316,8 @@ object PdfEngine {
                     outPdf.close()
                     return@withLock null
                 }
-                val outFile = getOutputFile(context, suffixLabel, sourceTitle)
+                val base = customOutputFilename.ifBlank { sourceTitle }
+                val outFile = getOutputFile(context, if (customOutputFilename.isBlank()) suffixLabel else "", base)
                 FileOutputStream(outFile).use { outPdf.writeTo(it) }
                 outPdf.close()
                 outFile
@@ -258,7 +331,8 @@ object PdfEngine {
         context: Context,
         sourcePath: String,
         sourceTitle: String,
-        degrees: Int // 90, 180, 270
+        degrees: Int, // 90, 180, 270
+        customOutputFilename: String = ""
     ): File? = withContext(Dispatchers.IO) {
         renderMutex.withLock {
             try {
@@ -290,7 +364,163 @@ object PdfEngine {
                         }
                     }
                 }
-                val outFile = getOutputFile(context, "Rotated_${normalizedDeg}deg", sourceTitle)
+                val base = customOutputFilename.ifBlank { sourceTitle }
+                val outFile = getOutputFile(context, if (customOutputFilename.isBlank()) "Rotated_${normalizedDeg}deg" else "", base)
+                FileOutputStream(outFile).use { outPdf.writeTo(it) }
+                outPdf.close()
+                outFile
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    suspend fun applyCustomWatermark(
+        context: Context,
+        sourcePath: String,
+        sourceTitle: String,
+        config: WatermarkConfig
+    ): File? = withContext(Dispatchers.IO) {
+        renderMutex.withLock {
+            try {
+                val pfd = openParcelFileDescriptor(context, sourcePath) ?: return@withLock null
+                val outPdf = PdfDocument()
+                val alphaInt = ((config.opacityPercent.coerceIn(5, 100) / 100f) * 255f).toInt().coerceIn(12, 255)
+                val r = Color.red(config.colorArgb)
+                val g = Color.green(config.colorArgb)
+                val b = Color.blue(config.colorArgb)
+
+                pfd.use { descriptor ->
+                    PdfRenderer(descriptor).use { renderer ->
+                        val total = renderer.pageCount
+                        for (i in 0 until total) {
+                            renderer.openPage(i).use { srcPage ->
+                                val w = srcPage.width.coerceAtLeast(200)
+                                val h = srcPage.height.coerceAtLeast(200)
+                                val bmp = Bitmap.createBitmap(w * 2, h * 2, Bitmap.Config.ARGB_8888)
+                                bmp.eraseColor(Color.WHITE)
+                                srcPage.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
+
+                                val pageInfo = PdfDocument.PageInfo.Builder(w, h, i + 1).create()
+                                val destPage = outPdf.startPage(pageInfo)
+                                val canvas = destPage.canvas
+                                canvas.drawBitmap(bmp, null, RectF(0f, 0f, w.toFloat(), h.toFloat()), Paint(Paint.FILTER_BITMAP_FLAG))
+
+                                if (config.text.isNotBlank()) {
+                                    canvas.save()
+                                    canvas.translate(w / 2f, h / 2f)
+                                    canvas.rotate(config.rotationDegrees)
+                                    val scaledFontSize = (config.fontSizePx * (w / 595f)).coerceIn(14f, 180f)
+                                    val wmPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                        color = Color.argb(alphaInt, r, g, b)
+                                        textSize = scaledFontSize
+                                        typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+                                        textAlign = Paint.Align.CENTER
+                                    }
+                                    val fontMetrics = wmPaint.fontMetrics
+                                    val centerOffset = (fontMetrics.descent + fontMetrics.ascent) / 2f
+                                    canvas.drawText(config.text, 0f, -centerOffset, wmPaint)
+                                    canvas.restore()
+                                }
+
+                                outPdf.finishPage(destPage)
+                                bmp.recycle()
+                            }
+                        }
+                    }
+                }
+                val baseName = config.outputFilename.ifBlank { "${sourceTitle.removeSuffix(".pdf")}-watermarked" }
+                val outFile = getOutputFile(context, "", baseName)
+                FileOutputStream(outFile).use { outPdf.writeTo(it) }
+                outPdf.close()
+                outFile
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    suspend fun stampSignatureOnPage(
+        context: Context,
+        sourcePath: String,
+        sourceTitle: String,
+        config: SignatureStampConfig
+    ): File? = withContext(Dispatchers.IO) {
+        renderMutex.withLock {
+            try {
+                val pfd = openParcelFileDescriptor(context, sourcePath) ?: return@withLock null
+                val uploadedBitmap: Bitmap? = config.uploadedSignatureUri?.let { uri ->
+                    runCatching {
+                        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+                    }.getOrNull()
+                }
+
+                val outPdf = PdfDocument()
+                pfd.use { descriptor ->
+                    PdfRenderer(descriptor).use { renderer ->
+                        val total = renderer.pageCount
+                        val targetIdx = config.targetPageIndex.coerceIn(0, (total - 1).coerceAtLeast(0))
+                        for (i in 0 until total) {
+                            renderer.openPage(i).use { srcPage ->
+                                val w = srcPage.width.coerceAtLeast(200)
+                                val h = srcPage.height.coerceAtLeast(200)
+                                val bmp = Bitmap.createBitmap(w * 2, h * 2, Bitmap.Config.ARGB_8888)
+                                bmp.eraseColor(Color.WHITE)
+                                srcPage.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
+
+                                val pageInfo = PdfDocument.PageInfo.Builder(w, h, i + 1).create()
+                                val destPage = outPdf.startPage(pageInfo)
+                                val canvas = destPage.canvas
+                                canvas.drawBitmap(bmp, null, RectF(0f, 0f, w.toFloat(), h.toFloat()), Paint(Paint.FILTER_BITMAP_FLAG))
+
+                                if (i == targetIdx) {
+                                    val boxW = (w * config.normalizedWidth).coerceIn(80f, w * 0.8f)
+                                    val boxH = (h * config.normalizedHeight).coerceIn(40f, h * 0.4f)
+                                    val centerX = (w * config.normalizedPositionX).coerceIn(boxW / 2f, w - boxW / 2f)
+                                    val centerY = (h * config.normalizedPositionY).coerceIn(boxH / 2f, h - boxH / 2f)
+                                    val boxLeft = centerX - boxW / 2f
+                                    val boxTop = centerY - boxH / 2f
+
+                                    if (uploadedBitmap != null) {
+                                        val dstRect = RectF(boxLeft, boxTop, boxLeft + boxW, boxTop + boxH)
+                                        canvas.drawBitmap(uploadedBitmap, null, dstRect, Paint(Paint.FILTER_BITMAP_FLAG))
+                                    } else if (config.strokePoints.isNotEmpty()) {
+                                        val sigPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                            color = config.inkColorArgb
+                                            style = Paint.Style.STROKE
+                                            strokeWidth = 3.2f
+                                            strokeCap = Paint.Cap.ROUND
+                                            strokeJoin = Paint.Join.ROUND
+                                        }
+                                        val path = Path()
+                                        var penDown = false
+                                        config.strokePoints.forEach { pt ->
+                                            if (pt.first < 0f || pt.second < 0f) {
+                                                penDown = false
+                                            } else {
+                                                val px = boxLeft + pt.first * boxW
+                                                val py = boxTop + pt.second * boxH
+                                                if (!penDown) {
+                                                    path.moveTo(px, py)
+                                                    penDown = true
+                                                } else {
+                                                    path.lineTo(px, py)
+                                                }
+                                            }
+                                        }
+                                        canvas.drawPath(path, sigPaint)
+                                    }
+                                }
+
+                                outPdf.finishPage(destPage)
+                                bmp.recycle()
+                            }
+                        }
+                    }
+                }
+                uploadedBitmap?.recycle()
+                val baseName = config.outputFilename.ifBlank { "${sourceTitle.removeSuffix(".pdf")}-signed" }
+                val outFile = getOutputFile(context, "", baseName)
                 FileOutputStream(outFile).use { outPdf.writeTo(it) }
                 outPdf.close()
                 outFile
@@ -306,8 +536,29 @@ object PdfEngine {
         sourceTitle: String,
         watermarkText: String?,
         includePageNumbers: Boolean,
-        signaturePathPoints: List<Pair<Float, Float>>? = null
+        signaturePathPoints: List<Pair<Float, Float>>? = null,
+        customOutputFilename: String = ""
     ): File? = withContext(Dispatchers.IO) {
+        if (!watermarkText.isNullOrBlank() && !includePageNumbers && signaturePathPoints.isNullOrEmpty()) {
+            return@withContext applyCustomWatermark(
+                context = context,
+                sourcePath = sourcePath,
+                sourceTitle = sourceTitle,
+                config = WatermarkConfig(text = watermarkText, outputFilename = customOutputFilename)
+            )
+        }
+        if (!signaturePathPoints.isNullOrEmpty()) {
+            return@withContext stampSignatureOnPage(
+                context = context,
+                sourcePath = sourcePath,
+                sourceTitle = sourceTitle,
+                config = SignatureStampConfig(
+                    targetPageIndex = 0,
+                    strokePoints = signaturePathPoints,
+                    outputFilename = customOutputFilename
+                )
+            )
+        }
         renderMutex.withLock {
             try {
                 val pfd = openParcelFileDescriptor(context, sourcePath) ?: return@withLock null
@@ -328,22 +579,6 @@ object PdfEngine {
                                 val canvas = destPage.canvas
                                 canvas.drawBitmap(bmp, null, RectF(0f, 0f, w.toFloat(), h.toFloat()), Paint(Paint.FILTER_BITMAP_FLAG))
 
-                                // Diagonal Watermark
-                                if (!watermarkText.isNullOrBlank()) {
-                                    canvas.save()
-                                    canvas.translate(w / 2f, h / 2f)
-                                    canvas.rotate(-35f)
-                                    val wmPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                                        color = Color.argb(48, 59, 130, 246)
-                                        textSize = (w * 0.085f).coerceAtLeast(26f)
-                                        typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-                                        textAlign = Paint.Align.CENTER
-                                    }
-                                    canvas.drawText(watermarkText.uppercase(), 0f, 0f, wmPaint)
-                                    canvas.restore()
-                                }
-
-                                // Page Numbers
                                 if (includePageNumbers) {
                                     val pnPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                                         color = Color.rgb(51, 65, 85)
@@ -359,40 +594,14 @@ object PdfEngine {
                                     canvas.drawText("${i + 1} / $total", w / 2f, h - 20f, pnPaint)
                                 }
 
-                                // Signature on final page
-                                if (!signaturePathPoints.isNullOrEmpty() && i == total - 1) {
-                                    val sigPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                                        color = Color.rgb(29, 78, 216)
-                                        style = Paint.Style.STROKE
-                                        strokeWidth = 2.8f
-                                        strokeCap = Paint.Cap.ROUND
-                                        strokeJoin = Paint.Join.ROUND
-                                    }
-                                    val boxLeft = w - 180f
-                                    val boxTop = h - 110f
-                                    val boxW = 136f
-                                    val boxH = 64f
-                                    val path = Path()
-                                    signaturePathPoints.forEachIndexed { idx, pt ->
-                                        val px = boxLeft + pt.first * boxW
-                                        val py = boxTop + pt.second * boxH
-                                        if (idx == 0) path.moveTo(px, py) else path.lineTo(px, py)
-                                    }
-                                    canvas.drawPath(path, sigPaint)
-                                }
-
                                 outPdf.finishPage(destPage)
                                 bmp.recycle()
                             }
                         }
                     }
                 }
-                val suffix = when {
-                    !signaturePathPoints.isNullOrEmpty() -> "Signed"
-                    !watermarkText.isNullOrBlank() -> "Watermarked"
-                    else -> "Numbered"
-                }
-                val outFile = getOutputFile(context, suffix, sourceTitle)
+                val baseName = customOutputFilename.ifBlank { "${sourceTitle.removeSuffix(".pdf")}-numbered" }
+                val outFile = getOutputFile(context, "", baseName)
                 FileOutputStream(outFile).use { outPdf.writeTo(it) }
                 outPdf.close()
                 outFile
@@ -402,12 +611,62 @@ object PdfEngine {
         }
     }
 
+    suspend fun protectOrUnlockPdfCopy(
+        context: Context,
+        sourcePath: String,
+        sourceTitle: String,
+        outputFilename: String
+    ): File? = withContext(Dispatchers.IO) {
+        renderMutex.withLock {
+            try {
+                val pfd = openParcelFileDescriptor(context, sourcePath) ?: return@withLock null
+                val outPdf = PdfDocument()
+                pfd.use { descriptor ->
+                    PdfRenderer(descriptor).use { renderer ->
+                        for (i in 0 until renderer.pageCount) {
+                            renderer.openPage(i).use { srcPage ->
+                                val w = srcPage.width.coerceAtLeast(200)
+                                val h = srcPage.height.coerceAtLeast(200)
+                                val bmp = Bitmap.createBitmap(w * 2, h * 2, Bitmap.Config.ARGB_8888)
+                                bmp.eraseColor(Color.WHITE)
+                                srcPage.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
+
+                                val pageInfo = PdfDocument.PageInfo.Builder(w, h, i + 1).create()
+                                val destPage = outPdf.startPage(pageInfo)
+                                destPage.canvas.drawBitmap(bmp, null, RectF(0f, 0f, w.toFloat(), h.toFloat()), Paint(Paint.FILTER_BITMAP_FLAG))
+                                outPdf.finishPage(destPage)
+                                bmp.recycle()
+                            }
+                        }
+                    }
+                }
+                val base = outputFilename.ifBlank { "${sourceTitle.removeSuffix(".pdf")}-protected" }
+                val outFile = getOutputFile(context, "", base)
+                FileOutputStream(outFile).use { outPdf.writeTo(it) }
+                outPdf.close()
+                outFile
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    fun hashDocumentPassword(password: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        var bytes = "paperflow-pdf-lock-v1:$password".toByteArray(Charsets.UTF_8)
+        repeat(2048) {
+            bytes = digest.digest(bytes)
+        }
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
     suspend fun convertOrOptimizePdf(
         context: Context,
         sourcePath: String,
         sourceTitle: String,
         grayscale: Boolean,
-        scaleFactor: Float // e.g., 1.0f for normal/repair, 0.72f for compress
+        scaleFactor: Float, // e.g., 1.0f for normal/repair, 0.72f for compress
+        customOutputFilename: String = ""
     ): File? = withContext(Dispatchers.IO) {
         renderMutex.withLock {
             try {
@@ -446,7 +705,8 @@ object PdfEngine {
                     scaleFactor < 0.95f -> "Compressed"
                     else -> "Repaired"
                 }
-                val outFile = getOutputFile(context, suffix, sourceTitle)
+                val base = customOutputFilename.ifBlank { "${sourceTitle.removeSuffix(".pdf")}-$suffix" }
+                val outFile = getOutputFile(context, "", base)
                 FileOutputStream(outFile).use { outPdf.writeTo(it) }
                 outPdf.close()
                 outFile
@@ -467,7 +727,7 @@ object PdfEngine {
             var added = 0
             imageUris.forEachIndexed { idx, uri ->
                 context.contentResolver.openInputStream(uri)?.use { stream ->
-                    val bmp = android.graphics.BitmapFactory.decodeStream(stream)
+                    val bmp = BitmapFactory.decodeStream(stream)
                     if (bmp != null) {
                         val pageW = 595
                         val pageH = 842
@@ -519,7 +779,7 @@ object PdfEngine {
 
                 pfd.use { descriptor ->
                     PdfRenderer(descriptor).use { renderer ->
-                        val limit = renderer.pageCount.coerceAtMost(10)
+                        val limit = renderer.pageCount.coerceAtMost(20)
                         for (i in 0 until limit) {
                             renderer.openPage(i).use { page ->
                                 val w = (page.width * 1.5f).toInt().coerceAtLeast(300)

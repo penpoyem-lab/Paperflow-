@@ -117,7 +117,8 @@ class GlassPaperRepository(
         title: String,
         categoryTag: String = "Tools Output",
         accentHex: Long = 0xFF22D3EE,
-        searchableText: String = ""
+        searchableText: String = "",
+        passwordProtectionHash: String = ""
     ): PdfDocumentEntity? = withContext(Dispatchers.IO) {
         val meta = PdfEngine.inspectPdf(context, file.absolutePath)
         if (!meta.isValid) return@withContext null
@@ -134,7 +135,8 @@ class GlassPaperRepository(
             categoryTag = categoryTag,
             accentHex = accentHex,
             searchableText = searchableText,
-            isScannedOnly = searchableText.isBlank()
+            isScannedOnly = searchableText.isBlank(),
+            passwordProtectionHash = passwordProtectionHash
         )
         val id = dao.insertDocument(entity)
         entity.copy(id = id)

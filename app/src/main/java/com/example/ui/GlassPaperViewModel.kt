@@ -22,7 +22,10 @@ import com.example.data.SettingsDataStore
 import com.example.data.StreakCheckInEvent
 import com.example.data.StreakData
 import com.example.data.TextSizeOption
+import com.example.pdf.MergeFileEntry
 import com.example.pdf.PdfEngine
+import com.example.pdf.SignatureStampConfig
+import com.example.pdf.WatermarkConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -128,10 +131,15 @@ class GlassPaperViewModel(
     private val _toolState = MutableStateFlow(ToolOperationState())
     val toolState: StateFlow<ToolOperationState> = _toolState.asStateFlow()
 
+    private val _isAppStartingLoading = MutableStateFlow(true)
+    val isAppStartingLoading: StateFlow<Boolean> = _isAppStartingLoading.asStateFlow()
+
     init {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             repository.removeLegacyDemoFilesIfPresent()
             val checkIn = settingsDataStore.registerDailyCheckInIfNeeded()
+            kotlinx.coroutines.delay(450)
+            _isAppStartingLoading.value = false
             if (checkIn != null) {
                 _streakCelebrationEvent.value = checkIn
             }
@@ -400,23 +408,42 @@ class GlassPaperViewModel(
 
     // ==================== PDF TOOLS EXECUTION ====================
 
-    fun executeMergePdfs(selectedDocs: List<PdfDocumentEntity>, outputTitle: String) {
-        if (selectedDocs.size < 2) {
-            _toolState.value = ToolOperationState(errorMessage = "Select at least 2 PDF documents to merge.")
+    fun clearToolResult() {
+        _toolState.value = ToolOperationState()
+    }
+
+    fun importAndSelectPdfForTool(
+        uri: Uri,
+        onImported: (PdfDocumentEntity) -> Unit
+    ) {
+        viewModelScope.launch {
+            val result = repository.importPdfFromUri(uri, "Tools Input")
+            result.onSuccess { doc ->
+                onImported(doc)
+            }.onFailure { err ->
+                _toolState.value = ToolOperationState(errorMessage = err.message ?: "Unable to import selected PDF.")
+            }
+        }
+    }
+
+    fun executeMergePdfEntries(entries: List<MergeFileEntry>, outputTitle: String) {
+        if (entries.isEmpty()) {
+            _toolState.value = ToolOperationState(errorMessage = "Select at least 1 PDF file to merge.")
             return
         }
         viewModelScope.launch {
-            _toolState.value = ToolOperationState(isRunning = true, progressText = "Merging ${selectedDocs.size} PDFs...")
-            val combinedText = selectedDocs.joinToString("||PAGE||") { it.searchableText }
-            val outFile = PdfEngine.mergePdfs(
+            _toolState.value = ToolOperationState(isRunning = true, progressText = "Merging ${entries.size} PDF files...")
+            val combinedText = entries.joinToString("||PAGE||") { it.searchableText }
+            val cleanTitle = outputTitle.ifBlank { "paperflow-merged" }
+            val outFile = PdfEngine.mergePdfsWithRotations(
                 appContext,
-                selectedDocs.map { it.filePath },
-                outputTitle.ifBlank { "Merged_Study_Pack" }
+                entries,
+                cleanTitle
             )
             if (outFile != null) {
                 val newDoc = repository.registerGeneratedPdfFile(
                     file = outFile,
-                    title = outputTitle.ifBlank { "Merged Study Pack.pdf" },
+                    title = if (cleanTitle.endsWith(".pdf", true)) cleanTitle else "$cleanTitle.pdf",
                     categoryTag = "Merged",
                     accentHex = 0xFFEC4899,
                     searchableText = combinedText
@@ -428,30 +455,51 @@ class GlassPaperViewModel(
         }
     }
 
+    fun executeMergePdfs(selectedDocs: List<PdfDocumentEntity>, outputTitle: String) {
+        executeMergePdfEntries(
+            entries = selectedDocs.map {
+                MergeFileEntry(
+                    filePath = it.filePath,
+                    title = it.title,
+                    pageCount = it.pageCount,
+                    fileSizeBytes = it.fileSizeBytes,
+                    rotationDegrees = 0,
+                    searchableText = it.searchableText
+                )
+            },
+            outputTitle = outputTitle
+        )
+    }
+
     fun executePageSelectionTool(
         doc: PdfDocumentEntity,
         selectedZeroBasedPages: List<Int>,
-        operationLabel: String
+        operationLabel: String,
+        customOutputFilename: String = ""
     ) {
         if (selectedZeroBasedPages.isEmpty()) {
             _toolState.value = ToolOperationState(errorMessage = "Select at least 1 page to continue.")
             return
         }
         viewModelScope.launch {
-            _toolState.value = ToolOperationState(isRunning = true, progressText = "Processing $operationLabel...")
+            _toolState.value = ToolOperationState(isRunning = true, progressText = "Processing $operationLabel (${selectedZeroBasedPages.size} pages)...")
             val outFile = PdfEngine.extractOrSplitPages(
                 appContext,
                 doc.filePath,
                 doc.title,
                 selectedZeroBasedPages,
-                operationLabel
+                operationLabel,
+                customOutputFilename
             )
             if (outFile != null) {
                 val origPages = doc.searchableText.split("||PAGE||")
                 val filteredText = selectedZeroBasedPages.mapNotNull { origPages.getOrNull(it) }.joinToString("||PAGE||")
+                val finalTitle = customOutputFilename.ifBlank {
+                    "${doc.title.removeSuffix(".pdf")} ($operationLabel).pdf"
+                }
                 val newDoc = repository.registerGeneratedPdfFile(
                     file = outFile,
-                    title = "${doc.title.removeSuffix(".pdf")} ($operationLabel).pdf",
+                    title = finalTitle,
                     categoryTag = operationLabel,
                     accentHex = 0xFF8B5CF6,
                     searchableText = filteredText
@@ -463,14 +511,17 @@ class GlassPaperViewModel(
         }
     }
 
-    fun executeRotatePdf(doc: PdfDocumentEntity, degrees: Int) {
+    fun executeRotatePdf(doc: PdfDocumentEntity, degrees: Int, customOutputFilename: String = "") {
         viewModelScope.launch {
             _toolState.value = ToolOperationState(isRunning = true, progressText = "Rotating pages by $degrees°...")
-            val outFile = PdfEngine.rotatePdf(appContext, doc.filePath, doc.title, degrees)
+            val outFile = PdfEngine.rotatePdf(appContext, doc.filePath, doc.title, degrees, customOutputFilename)
             if (outFile != null) {
+                val finalTitle = customOutputFilename.ifBlank {
+                    "${doc.title.removeSuffix(".pdf")}-rotated-$degrees.pdf"
+                }
                 val newDoc = repository.registerGeneratedPdfFile(
                     file = outFile,
-                    title = "${doc.title.removeSuffix(".pdf")} (Rotated $degrees°).pdf",
+                    title = finalTitle,
                     categoryTag = "Rotated",
                     accentHex = 0xFF3B82F6,
                     searchableText = doc.searchableText
@@ -482,11 +533,134 @@ class GlassPaperViewModel(
         }
     }
 
+    fun executeCustomWatermark(doc: PdfDocumentEntity, config: WatermarkConfig) {
+        if (config.text.isBlank()) {
+            _toolState.value = ToolOperationState(errorMessage = "Please enter watermark text.")
+            return
+        }
+        viewModelScope.launch {
+            _toolState.value = ToolOperationState(isRunning = true, progressText = "Applying watermark across ${doc.pageCount} pages...")
+            val outFile = PdfEngine.applyCustomWatermark(appContext, doc.filePath, doc.title, config)
+            if (outFile != null) {
+                val finalTitle = config.outputFilename.ifBlank {
+                    "${doc.title.removeSuffix(".pdf")}-watermarked.pdf"
+                }
+                val newDoc = repository.registerGeneratedPdfFile(
+                    file = outFile,
+                    title = finalTitle,
+                    categoryTag = "Watermarked",
+                    accentHex = 0xFF8B5CF6,
+                    searchableText = doc.searchableText
+                )
+                _toolState.value = ToolOperationState(isRunning = false, resultDocument = newDoc)
+            } else {
+                _toolState.value = ToolOperationState(isRunning = false, errorMessage = "Failed to apply watermark.")
+            }
+        }
+    }
+
+    fun executeSignatureStamp(doc: PdfDocumentEntity, config: SignatureStampConfig) {
+        if (config.strokePoints.isEmpty() && config.uploadedSignatureUri == null) {
+            _toolState.value = ToolOperationState(errorMessage = "Draw or upload a signature first.")
+            return
+        }
+        viewModelScope.launch {
+            _toolState.value = ToolOperationState(isRunning = true, progressText = "Signing Page ${config.targetPageIndex + 1} of ${doc.pageCount}...")
+            val outFile = PdfEngine.stampSignatureOnPage(appContext, doc.filePath, doc.title, config)
+            if (outFile != null) {
+                val finalTitle = config.outputFilename.ifBlank {
+                    "${doc.title.removeSuffix(".pdf")}-signed.pdf"
+                }
+                val newDoc = repository.registerGeneratedPdfFile(
+                    file = outFile,
+                    title = finalTitle,
+                    categoryTag = "Signed",
+                    accentHex = 0xFFEC4899,
+                    searchableText = doc.searchableText
+                )
+                _toolState.value = ToolOperationState(isRunning = false, resultDocument = newDoc)
+            } else {
+                _toolState.value = ToolOperationState(isRunning = false, errorMessage = "Failed to sign document.")
+            }
+        }
+    }
+
+    fun executeProtectPdf(
+        doc: PdfDocumentEntity,
+        newPassword: String,
+        confirmPassword: String,
+        outputFilename: String
+    ) {
+        if (newPassword.length < 4) {
+            _toolState.value = ToolOperationState(errorMessage = "Password must be at least 4 characters.")
+            return
+        }
+        if (newPassword != confirmPassword) {
+            _toolState.value = ToolOperationState(errorMessage = "Passwords do not match.")
+            return
+        }
+        viewModelScope.launch {
+            _toolState.value = ToolOperationState(isRunning = true, progressText = "Encrypting & locking PDF...")
+            val hash = PdfEngine.hashDocumentPassword(newPassword)
+            val cleanName = outputFilename.ifBlank { "${doc.title.removeSuffix(".pdf")}-protected" }
+            val outFile = PdfEngine.protectOrUnlockPdfCopy(appContext, doc.filePath, doc.title, cleanName)
+            if (outFile != null) {
+                val newDoc = repository.registerGeneratedPdfFile(
+                    file = outFile,
+                    title = if (cleanName.endsWith(".pdf", true)) cleanName else "$cleanName.pdf",
+                    categoryTag = "Protected",
+                    accentHex = 0xFF8B5CF6,
+                    searchableText = doc.searchableText,
+                    passwordProtectionHash = hash
+                )
+                _toolState.value = ToolOperationState(isRunning = false, resultDocument = newDoc)
+            } else {
+                _toolState.value = ToolOperationState(isRunning = false, errorMessage = "Failed to encrypt & save PDF.")
+            }
+        }
+    }
+
+    fun executeUnlockPdf(
+        doc: PdfDocumentEntity,
+        passwordInput: String,
+        outputFilename: String
+    ) {
+        if (doc.passwordProtectionHash.isNotBlank()) {
+            val enteredHash = PdfEngine.hashDocumentPassword(passwordInput)
+            if (enteredHash != doc.passwordProtectionHash) {
+                _toolState.value = ToolOperationState(errorMessage = "Incorrect password for this protected PDF.")
+                return
+            }
+        } else if (passwordInput.isBlank()) {
+            _toolState.value = ToolOperationState(errorMessage = "Enter the document password to unlock.")
+            return
+        }
+        viewModelScope.launch {
+            _toolState.value = ToolOperationState(isRunning = true, progressText = "Removing password protection...")
+            val cleanName = outputFilename.ifBlank { "${doc.title.removeSuffix(".pdf")}-unlocked" }
+            val outFile = PdfEngine.protectOrUnlockPdfCopy(appContext, doc.filePath, doc.title, cleanName)
+            if (outFile != null) {
+                val newDoc = repository.registerGeneratedPdfFile(
+                    file = outFile,
+                    title = if (cleanName.endsWith(".pdf", true)) cleanName else "$cleanName.pdf",
+                    categoryTag = "Unlocked",
+                    accentHex = 0xFF22D3EE,
+                    searchableText = doc.searchableText,
+                    passwordProtectionHash = ""
+                )
+                _toolState.value = ToolOperationState(isRunning = false, resultDocument = newDoc)
+            } else {
+                _toolState.value = ToolOperationState(isRunning = false, errorMessage = "Failed to unlock PDF.")
+            }
+        }
+    }
+
     fun executeStampPdf(
         doc: PdfDocumentEntity,
         watermarkText: String?,
         includePageNumbers: Boolean,
-        signaturePoints: List<Pair<Float, Float>>? = null
+        signaturePoints: List<Pair<Float, Float>>? = null,
+        customOutputFilename: String = ""
     ) {
         viewModelScope.launch {
             _toolState.value = ToolOperationState(isRunning = true, progressText = "Applying document layer...")
@@ -496,7 +670,8 @@ class GlassPaperViewModel(
                 doc.title,
                 watermarkText,
                 includePageNumbers,
-                signaturePoints
+                signaturePoints,
+                customOutputFilename
             )
             if (outFile != null) {
                 val label = when {
@@ -504,9 +679,12 @@ class GlassPaperViewModel(
                     !watermarkText.isNullOrBlank() -> "Watermarked"
                     else -> "Numbered"
                 }
+                val finalTitle = customOutputFilename.ifBlank {
+                    "${doc.title.removeSuffix(".pdf")}-${label.lowercase()}.pdf"
+                }
                 val newDoc = repository.registerGeneratedPdfFile(
                     file = outFile,
-                    title = "${doc.title.removeSuffix(".pdf")} ($label).pdf",
+                    title = finalTitle,
                     categoryTag = label,
                     accentHex = 0xFF14B8A6,
                     searchableText = doc.searchableText
@@ -518,14 +696,30 @@ class GlassPaperViewModel(
         }
     }
 
-    fun executeOptimizeOrGrayscalePdf(doc: PdfDocumentEntity, grayscale: Boolean, scaleFactor: Float, label: String) {
+    fun executeOptimizeOrGrayscalePdf(
+        doc: PdfDocumentEntity,
+        grayscale: Boolean,
+        scaleFactor: Float,
+        label: String,
+        customOutputFilename: String = ""
+    ) {
         viewModelScope.launch {
             _toolState.value = ToolOperationState(isRunning = true, progressText = "Running $label engine...")
-            val outFile = PdfEngine.convertOrOptimizePdf(appContext, doc.filePath, doc.title, grayscale, scaleFactor)
+            val outFile = PdfEngine.convertOrOptimizePdf(
+                appContext,
+                doc.filePath,
+                doc.title,
+                grayscale,
+                scaleFactor,
+                customOutputFilename
+            )
             if (outFile != null) {
+                val finalTitle = customOutputFilename.ifBlank {
+                    "${doc.title.removeSuffix(".pdf")}-${label.lowercase()}.pdf"
+                }
                 val newDoc = repository.registerGeneratedPdfFile(
                     file = outFile,
-                    title = "${doc.title.removeSuffix(".pdf")} ($label).pdf",
+                    title = finalTitle,
                     categoryTag = label,
                     accentHex = 0xFFF59E0B,
                     searchableText = doc.searchableText

@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 
 data class GlassColors(
     val isDark: Boolean,
+    val isGalacticCodex: Boolean = false,
     val panelBackground: Color,
     val panelBackgroundElevated: Color,
     val borderHighlight: Color,
@@ -82,13 +83,30 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun GlassPaperTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    isGalacticCodex: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val effectiveDark = darkTheme || isGalacticCodex
+    val colorScheme = if (effectiveDark) DarkColorScheme else LightColorScheme
 
-    val glassColors = if (darkTheme) {
-        GlassColors(
+    val glassColors = when {
+        isGalacticCodex -> GlassColors(
             isDark = true,
+            isGalacticCodex = true,
+            panelBackground = Color(0x6B0F1A26),
+            panelBackgroundElevated = Color(0x88162634),
+            borderHighlight = Color(0x8CFBBF24),
+            borderSubtle = Color(0x4014B8A6),
+            textPrimary = Color(0xFFF8FAFC),
+            textSecondary = Color(0xFFD6E4F0),
+            textMuted = Color(0xFF94A3B8),
+            iconTint = WarmGold,
+            innerGlowTop = Color(0x4DF59E0B),
+            innerGlowBottom = Color(0x3314B8A6)
+        )
+        effectiveDark -> GlassColors(
+            isDark = true,
+            isGalacticCodex = false,
             panelBackground = Color(0x5E16203D),
             panelBackgroundElevated = Color(0x801E2B52),
             borderHighlight = Color(0x66FFFFFF),
@@ -100,9 +118,9 @@ fun GlassPaperTheme(
             innerGlowTop = Color(0x3D60A5FA),
             innerGlowBottom = Color(0x26A855F7)
         )
-    } else {
-        GlassColors(
+        else -> GlassColors(
             isDark = false,
+            isGalacticCodex = false,
             panelBackground = Color(0x8CFFFFFF),
             panelBackgroundElevated = Color(0xB8FFFFFF),
             borderHighlight = Color(0xF2FFFFFF),

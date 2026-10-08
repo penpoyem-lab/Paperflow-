@@ -105,7 +105,7 @@ interface GlassPaperDao {
         BookmarkEntity::class,
         AnnotationEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class GlassPaperDatabase : RoomDatabase() {

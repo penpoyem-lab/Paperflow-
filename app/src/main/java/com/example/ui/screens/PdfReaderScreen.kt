@@ -59,6 +59,7 @@ import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -125,6 +126,7 @@ import com.example.pdf.PdfEngine
 import com.example.ui.GlassPaperViewModel
 import com.example.ui.components.GlassCircularIconButton
 import com.example.ui.components.LiquidGlassPanel
+import com.example.ui.components.PlayStoreOrganicBlobSpinner
 import com.example.ui.theme.AnnotBlue
 import com.example.ui.theme.AnnotGreen
 import com.example.ui.theme.AnnotPink
@@ -207,6 +209,108 @@ fun PdfReaderScreen(
     }
 
     val annotations by viewModel.getAnnotationsForDoc(document.id).collectAsState(initial = emptyList())
+
+    var isPasswordUnlocked by remember(document.id, document.passwordProtectionHash) {
+        mutableStateOf(document.passwordProtectionHash.isBlank())
+    }
+    var passwordInput by remember(document.id) { mutableStateOf("") }
+    var passwordError by remember(document.id) { mutableStateOf<String?>(null) }
+
+    if (!isPasswordUnlocked) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            LiquidGlassPanel(
+                modifier = Modifier.fillMaxWidth(),
+                cornerRadius = 30.dp,
+                tintColor = PrismViolet
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(26.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(PrismViolet.copy(alpha = 0.2f))
+                            .border(1.5.dp, PrismViolet.copy(alpha = 0.7f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Lock,
+                            contentDescription = "Protected PDF",
+                            tint = PrismViolet,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                    Text(
+                        text = "Protected PDF Document",
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                        color = glass.textPrimary
+                    )
+                    Text(
+                        text = "Enter the password to open \"${document.title}\" in Paperflow.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = glass.textSecondary
+                    )
+                    OutlinedTextField(
+                        value = passwordInput,
+                        onValueChange = {
+                            passwordInput = it
+                            passwordError = null
+                        },
+                        label = { Text("Document Password") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("reader_password_input")
+                    )
+                    passwordError?.let { err ->
+                        Text(
+                            text = err,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                            color = LiquidMagenta
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        TextButton(
+                            onClick = onBack,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Cancel")
+                        }
+                        Button(
+                            onClick = {
+                                val enteredHash = PdfEngine.hashDocumentPassword(passwordInput)
+                                if (enteredHash == document.passwordProtectionHash) {
+                                    isPasswordUnlocked = true
+                                } else {
+                                    passwordError = "Incorrect password. Please try again."
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("reader_unlock_button")
+                        ) {
+                            Text("Unlock PDF")
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
 
     val startPage = remember(document.id, initialPage) {
         if (initialPage >= 0) initialPage.coerceIn(0, (document.pageCount - 1).coerceAtLeast(0))
@@ -1021,8 +1125,13 @@ private fun PdfPageSurfaceCard(
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = ElectricBlue)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF101010)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    PlayStoreOrganicBlobSpinner(indicatorSize = 44.dp)
                 }
             }
 

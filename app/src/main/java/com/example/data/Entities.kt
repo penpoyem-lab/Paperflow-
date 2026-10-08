@@ -17,7 +17,8 @@ data class PdfDocumentEntity(
     val categoryTag: String = "Study",
     val accentHex: Long = 0xFF3B82F6,
     val searchableText: String = "", // Extracted or generated page text separated by "||PAGE||"
-    val isScannedOnly: Boolean = false
+    val isScannedOnly: Boolean = false,
+    val passwordProtectionHash: String = "" // SHA-256 salted hash when protected via Paperflow Protect PDF
 )
 
 @Entity(tableName = "notes")

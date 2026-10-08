@@ -14,7 +14,7 @@ import java.time.temporal.ChronoUnit
 
 private val Context.dataStore by preferencesDataStore(name = "glasspaper_settings")
 
-enum class AppThemeOption { LIGHT, DARK, SYSTEM }
+enum class AppThemeOption { LIGHT, DARK, SYSTEM, GALACTIC_CODEX }
 enum class ReaderThemeOption { LIGHT, SEPIA, DARK }
 enum class TextSizeOption { SMALL, MEDIUM, LARGE }
 enum class PageLayoutOption { SINGLE_PAGE, CONTINUOUS, TWO_PAGE }

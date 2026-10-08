@@ -119,6 +119,7 @@ import com.example.auth.AuthFieldTarget
 import com.example.auth.AuthResult
 import com.example.auth.AuthSessionState
 import com.example.auth.PaperflowAuthManager
+import com.example.ui.components.PlayStoreOrganicBlobSpinner
 import com.example.ui.theme.CrystalTeal
 import com.example.ui.theme.ElectricBlue
 import com.example.ui.theme.EmeraldGreen
@@ -2106,10 +2107,9 @@ private fun LiquidGradientAuthButton(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        strokeWidth = 2.4.dp,
-                        modifier = Modifier.size(20.dp)
+                    PlayStoreOrganicBlobSpinner(
+                        indicatorSize = 22.dp,
+                        blobColor = Color(0xFF8EC5FF)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
