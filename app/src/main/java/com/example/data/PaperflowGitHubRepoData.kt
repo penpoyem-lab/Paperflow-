@@ -128,12 +128,12 @@ object PaperflowGitHubRepoData {
     )
 
     val readmeMarkdownContent: String = """
-# Paperflow — PDF Reader, Organizer & Study Notes
+# Paperflow — PDF Reader, Toolkit & Study Notes
 
 <div align="center">
-  <img src="app/src/main/res/drawable/paperflow_red_black_icon_1791443745243.jpg" alt="Paperflow App Icon" width="100" />
-  <h3>PDF Reader • PDF Toolkit • Linked Study Notes • Floating AI Assistant</h3>
-  <p>A modern, 100% local-first Android PDF Reader, PDF Toolkit, and Study Notes workspace crafted with Kotlin, Jetpack Compose, and an Apple VisionOS-inspired Liquid Glass design system.</p>
+  <img src="app/src/main/res/drawable-nodpi/paperflow_red_black_icon_1791443745243.jpg" alt="Paperflow App Icon" width="110" />
+  <h3>High-Refresh Liquid Glass PDF Reader • 20 PDF Utilities • Universal AI Translator • Linked Study Notes</h3>
+  <p>A modern, local-first Android PDF Reader, PDF Toolkit, Universal Language Translator, and Study Notes workspace crafted with Kotlin, Jetpack Compose, and an Apple VisionOS-inspired Liquid Glass design system.</p>
 </div>
 
 ---
@@ -141,28 +141,29 @@ object PaperflowGitHubRepoData {
 ## 📸 App Interface & Visual Showcase
 
 <div align="center">
-  <img src="app/src/main/res/drawable/img_app_interface_showcase_1791433886976.jpg" alt="Paperflow App Interface Showcase" width="100%" />
-  <p><em>Left: Home Workspace & Daily Streak • Center: High-Resolution PDF Reader & Annotation Studio • Right: 19 Offline PDF Tools & Draggable Liquid-Glass AI Assistant</em></p>
+  <img src="app/src/main/res/drawable-nodpi/img_app_interface_showcase_1791433886976.jpg" alt="Paperflow App Interface Showcase" width="100%" />
+  <p><em>Left: Home Workspace & Daily Streak • Center: High-Resolution PDF Reader & Annotation Studio • Right: 20 PDF Tools & Draggable Liquid-Glass AI Assistant</em></p>
 </div>
 
-| VisionOS Liquid Glass Hero | Galactic Scholar (Cosmic Codex) Edition | 3D Crystalline PDF Engine Emblem |
-| :---: | :---: | :---: |
-| <img src="app/src/main/res/drawable/img_hero_liquid_glass_1791391701805.jpg" width="280" /> | <img src="app/src/main/res/drawable/img_hero_galactic_codex_1791427754468.jpg" width="280" /> | <img src="app/src/main/res/drawable/img_pdf_3d_badge_1791391714001.jpg" width="180" /> |
+| 💎 VisionOS Liquid Glass | 🌌 Galactic Scholar (Cosmic Codex) | 🏜️ Desert Dune (Terracotta) | 🌲 Enchanted Forest (Botanical) |
+| :---: | :---: | :---: | :---: |
+| <img src="app/src/main/res/drawable-nodpi/img_hero_liquid_glass_1791391701805.jpg" width="240" /> | <img src="app/src/main/res/drawable-nodpi/img_hero_galactic_codex_1791427754468.jpg" width="240" /> | <img src="app/src/main/res/drawable/img_hero_desert_dune_clay_1791461302278.jpg" width="240" /> | <img src="app/src/main/res/drawable/img_hero_enchanted_forest_codex_1791461314095.jpg" width="240" /> |
 
 ---
 
 ## 🖥️ Interactive App Interface Breakdown
 
 1. **🏠 Home Workspace & Daily Reading Streak (`HomeScreen.kt`)**:
-   - Quick-action cards for **Open PDF**, **Merge**, **Split**, **Compress**, and **New Study Note**, plus the **🔥 Daily Streak** pill and **Continue Reading** carousel.
+   - Quick-action cards for **Open PDF**, **Translate PDF**, **Merge**, **Split**, **Compress**, and **New Study Note**, plus the **🔥 Daily Streak** pill, transparent **Play Store Pull-to-Refresh**, and **Continue Reading** carousel.
 2. **📖 Native High-Resolution PDF Reader (`PdfReaderScreen.kt`)**:
    - Crisp multi-page rendering powered by Android's `PdfRenderer`, pinch-to-zoom, page thumbnails, Light / Sepia / Dark reader modes, and 5-color **Annotation Studio**.
-3. **🛠️ Complete Offline PDF Toolkit (`ToolsScreen.kt` & `PdfEngine.kt`)**:
-   - **19 Active Utilities**: Merge, Split, Rotate, Rearrange, Delete/Extract Pages, Page Numbers, Watermark, Digital Ink Signature, Compress, Repair, Grayscale, Protect/Unlock PDF, Metadata Inspector, PDF to Image/Text, and Image to PDF.
+3. **🛠️ 20 Built-In PDF Tools & Universal AI Translator (`ToolsScreen.kt` & `PdfEngine.kt`)**:
+   - **Universal PDF Translator (Any Language → Any Language)**: Translate PDFs across **100+ world languages** or any custom dialect with Auto-Detect, 1-tap swap (`⇄`), Bilingual mode, and multi-script Unicode PDF generation.
+   - **19 Offline Utilities**: Merge, Split, Rotate, Rearrange, Delete/Extract Pages, Page Numbers, Watermark, Digital Ink Signature, Compress, Repair, Grayscale, Protect/Unlock PDF, Metadata Inspector, PDF to Image/Text, and Image to PDF.
 4. **✨ Draggable Floating Liquid-Glass AI Assistant (`FloatingAiChatbot.kt`)**:
-   - Smooth freeform drag with 4-edge magnetic spring snap, animated Prism Star logo, and PDF-aware summarization, Q&A, translation, and 1-tap save to Study Notes.
-5. **🎨 Visual Editions & Photo Themes (`SettingsScreen.kt`)**:
-   - Switch between **Light**, **Dark**, **System**, and the **Galactic Scholar (Cosmic Codex)** photo edition.
+   - Smooth freeform drag with 4-edge magnetic spring snap, keyboard-aware docking, animated Prism Star logo, and PDF-aware summarization, Q&A, translation, and 1-tap save to Study Notes.
+5. **🎨 6 Visual Editions & Photo Themes (`SettingsScreen.kt`)**:
+   - Switch between **Light**, **Dark**, **System**, **Galactic Scholar (Cosmic Codex)**, **Desert Dune (Warm Terracotta)**, and **Enchanted Forest (Botanical Emerald)**.
 
 ---
 
@@ -174,11 +175,11 @@ Paperflow-pdf-reader-Notes/
 ├── app/
 │   ├── src/main/
 │   │   ├── java/com/example/
-│   │   │   ├── ai/          # PaperflowAiService & PDF context engine
+│   │   │   ├── ai/          # PaperflowAiService, 100+ language translator & PDF context engine
 │   │   │   ├── auth/        # PaperflowAuthManager & session persistence
 │   │   │   ├── data/        # Room Database, Entities, DAO & SettingsDataStore
-│   │   │   ├── pdf/         # Native PdfEngine (Merge, Split, Compress, Sign, Watermark)
-│   │   │   └── ui/          # Jetpack Compose screens, Liquid Glass components & Theme
+│   │   │   ├── pdf/         # Native PdfEngine (Merge, Split, Compress, Sign, Watermark, Translate PDF)
+│   │   │   └── ui/          # Jetpack Compose screens, Liquid Glass components & 6 Themes
 │   │   ├── res/             # App interface showcase photos, adaptive icons & fonts
 │   │   └── AndroidManifest.xml
 │   └── build.gradle.kts     # App module dependencies & Compose configuration
@@ -219,7 +220,7 @@ Paperflow-pdf-reader-Notes/
 
 ## 🔒 Privacy & Local-First Architecture
 
-Paperflow processes **100% of your PDFs, annotations, signatures, and study notes locally on your Android device**. No documents are uploaded to external cloud servers.
+Paperflow processes **your PDFs, annotations, signatures, and study notes locally on your Android device**. No documents leave your device unless you explicitly share them or invoke AI translation/summarization.
 """.trimIndent()
 
     val licenseContent: String = """

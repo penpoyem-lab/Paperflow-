@@ -2034,6 +2034,7 @@ private fun GitHubFileContentViewerCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PaperflowReadmeRichRender(
     ghSurfaceBg: Color,
@@ -2057,38 +2058,24 @@ private fun PaperflowReadmeRichRender(
                 .padding(vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Paperflow Translucent Liquid Glass Emblem
-            Box(
+            // Paperflow App Icon Emblem
+            Image(
+                painter = painterResource(id = R.drawable.paperflow_red_black_icon_1791443745243),
+                contentDescription = "Paperflow App Icon",
                 modifier = Modifier
-                    .size(72.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                ElectricBlue,
-                                LiquidCyan,
-                                PrismViolet
-                            )
-                        )
-                    )
-                    .border(1.5.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(20.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Description,
-                    contentDescription = "Paperflow Logo",
-                    tint = Color.White,
-                    modifier = Modifier.size(38.dp)
-                )
-            }
+                    .size(84.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .border(1.5.dp, ghBorderColor, RoundedCornerShape(22.dp)),
+                contentScale = ContentScale.Crop
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "Paperflow",
-                style = MaterialTheme.typography.headlineMedium.copy(
+                text = "Paperflow — PDF Reader, Toolkit & Notes",
+                style = MaterialTheme.typography.headlineSmall.copy(
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 26.sp
+                    fontSize = 22.sp
                 ),
                 color = ghTextPrimary
             )
@@ -2096,20 +2083,23 @@ private fun PaperflowReadmeRichRender(
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Native Android PDF Reader, PDF Toolkit & Linked Study Notes",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "High-Refresh Liquid Glass PDF Reader • 20 PDF Tools • Universal AI Translator • Study Notes",
+                style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp),
                 color = ghTextSecondary
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
             // GitHub Shield-style Status Badges
-            Row(
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 ReadmeShieldBadge("Platform", "Android 7.0+", Color(0xFF238636))
                 ReadmeShieldBadge("Kotlin", "2.2.10", Color(0xFF7F52FF))
+                ReadmeShieldBadge("Jetpack Compose", "Material 3", Color(0xFF4285F4))
+                ReadmeShieldBadge("PDF Toolkit", "20 Tools", Color(0xFF00B4D8))
+                ReadmeShieldBadge("Display", "165Hz Fluid UI", Color(0xFFF59E0B))
                 ReadmeShieldBadge("License", "MIT", Color(0xFF0969DA))
             }
         }
@@ -2127,7 +2117,7 @@ private fun PaperflowReadmeRichRender(
         )
 
         Text(
-            text = "Explore Paperflow's multi-panel Apple VisionOS Liquid Glass interface, Galactic Scholar (Cosmic Codex) photo edition, native PDF annotation studio, and draggable floating AI assistant.",
+            text = "Explore Paperflow's multi-panel Apple VisionOS Liquid Glass interface, 6 bespoke photo theme editions, native PDF annotation studio, 20 built-in PDF tools, and draggable floating AI assistant.",
             style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp),
             color = ghTextSecondary
         )
@@ -2156,7 +2146,7 @@ private fun PaperflowReadmeRichRender(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Left: Home Workspace & Daily Streak • Center: High-Resolution PDF Reader & Annotation Studio • Right: 19 Offline PDF Tools & Draggable Liquid-Glass AI Assistant",
+                    text = "Left: Home Workspace & Daily Streak • Center: High-Resolution PDF Reader & Annotation Studio • Right: 20 Built-In PDF Tools & Draggable Liquid-Glass AI Assistant",
                     style = MaterialTheme.typography.labelSmall.copy(lineHeight = 16.sp),
                     color = ghTextSecondary
                 )
@@ -2172,7 +2162,7 @@ private fun PaperflowReadmeRichRender(
         ) {
             ReadmePhotoGalleryCard(
                 drawableRes = R.drawable.img_hero_liquid_glass_1791391701805,
-                title = "VisionOS Liquid Glass Workspace",
+                title = "💎 VisionOS Liquid Glass",
                 caption = "Frosted translucent glass layers, dynamic cyan/violet refraction & safe-area navigation capsule.",
                 ghSurfaceBg = ghSurfaceBg,
                 ghBorderColor = ghBorderColor,
@@ -2182,7 +2172,7 @@ private fun PaperflowReadmeRichRender(
 
             ReadmePhotoGalleryCard(
                 drawableRes = R.drawable.img_hero_galactic_codex_1791427754468,
-                title = "Galactic Scholar (Cosmic Codex)",
+                title = "🌌 Galactic Scholar Edition",
                 caption = "Deep-space obsidian & warm gold illumination photo theme configurable in Settings.",
                 ghSurfaceBg = ghSurfaceBg,
                 ghBorderColor = ghBorderColor,
@@ -2191,9 +2181,29 @@ private fun PaperflowReadmeRichRender(
             )
 
             ReadmePhotoGalleryCard(
+                drawableRes = R.drawable.img_hero_desert_dune_clay_1791461302278,
+                title = "🏜️ Desert Dune Edition",
+                caption = "Sun-baked terracotta clay, warm sandstone & amber bronze accents.",
+                ghSurfaceBg = ghSurfaceBg,
+                ghBorderColor = ghBorderColor,
+                ghTextPrimary = ghTextPrimary,
+                ghTextSecondary = ghTextSecondary
+            )
+
+            ReadmePhotoGalleryCard(
+                drawableRes = R.drawable.img_hero_enchanted_forest_codex_1791461314095,
+                title = "🌲 Enchanted Forest Edition",
+                caption = "Deep woodland pine, emerald moss & sunlit botanical gold illumination.",
+                ghSurfaceBg = ghSurfaceBg,
+                ghBorderColor = ghBorderColor,
+                ghTextPrimary = ghTextPrimary,
+                ghTextSecondary = ghTextSecondary
+            )
+
+            ReadmePhotoGalleryCard(
                 drawableRes = R.drawable.img_pdf_3d_badge_1791391714001,
-                title = "Native On-Device PDF Engine",
-                caption = "Hardware-accelerated PdfRenderer & 19 offline PDF utilities with zero cloud uploads.",
+                title = "🛠️ 20 Built-In PDF Tools",
+                caption = "Hardware-accelerated PdfRenderer, 19 offline utilities & Universal 100+ Language AI PDF Translator.",
                 ghSurfaceBg = ghSurfaceBg,
                 ghBorderColor = ghBorderColor,
                 ghTextPrimary = ghTextPrimary,
@@ -2205,7 +2215,7 @@ private fun PaperflowReadmeRichRender(
 
         // Overview Section
         Text(
-            text = "Overview",
+            text = "✨ Overview & Core Capabilities",
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp
@@ -2214,7 +2224,7 @@ private fun PaperflowReadmeRichRender(
         )
 
         Text(
-            text = "Paperflow is a 100% local-first PDF Reader, PDF Organizer, and Study Notes application for Android. It combines high-resolution multi-page PDF rendering with an Apple VisionOS-inspired Liquid Glass interface, a real Daily Reading Streak system, and a complete offline PDF manipulation engine.",
+            text = "Paperflow is a local-first PDF Reader, Document Studio, Universal PDF Translator, and Study Notes workspace for Android. It combines high-resolution multi-page PDF rendering with an Apple VisionOS-inspired Liquid Glass interface, a Daily Reading Streak system, and 20 built-in PDF tools.",
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontSize = 14.sp,
                 lineHeight = 21.sp
@@ -2222,21 +2232,12 @@ private fun PaperflowReadmeRichRender(
             color = ghTextPrimary
         )
 
-        // Core Capabilities List
-        Text(
-            text = "Key Capabilities",
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
-            ),
-            color = ghTextPrimary
-        )
-
         val capabilities = listOf(
-            "Native PDF Reader" to "Crisp multi-page rendering, pinch-to-zoom, Light/Sepia/Dark reader modes, and automatic reading progress persistence.",
-            "Arrange & Rearrange PDF Toolkit" to "Merge PDFs, Split page ranges, Rearrange/Rotate/Delete pages, Compress PDFs, add Watermarks, and apply Digital Ink Signatures.",
-            "Page-Linked Study Notes" to "Write structured study notes attached directly to specific PDF documents and page numbers.",
-            "Daily Streak & Galactic Codex Edition" to "Track daily reading habits offline and customize the workspace with the Galactic Scholar photo theme."
+            "📖 Native High-Resolution PDF Reader" to "Crisp multi-page rendering, pinch-to-zoom, Light/Sepia/Dark reader filters, 5-color Annotation Studio, and automatic reading progress.",
+            "🌐 Universal PDF Translator (Any → Any Language)" to "Translate any PDF between 100+ world languages or any custom dialect with Auto-Detect, 1-tap swap (⇄), Bilingual mode, and Unicode PDF export.",
+            "🛠️ 19 Offline PDF Manipulation Tools" to "Merge PDFs, Split page ranges, Rearrange/Rotate/Delete/Extract pages, Compress, Repair, Grayscale, Protect/Unlock, Watermark, and Sign with Digital Ink.",
+            "✨ Draggable Floating Liquid-Glass AI Assistant" to "Freeform drag with 4-edge magnetic spring snap, keyboard-aware docking, document summarization, Q&A, and 1-tap save to Study Notes.",
+            "🎨 6 Visual Themes & Play Store Pull-to-Refresh" to "Light, Dark, System, Galactic Scholar, Desert Dune, and Enchanted Forest themes with transparent morphing pull-to-refresh."
         )
 
         capabilities.forEach { (title, desc) ->
