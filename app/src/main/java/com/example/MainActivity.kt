@@ -64,6 +64,7 @@ import com.example.ui.components.PaperflowFlashIntroOverlay
 import com.example.ui.components.PlayStoreSystemLoadingOverlay
 import com.example.ui.screens.AuthenticationScreen
 import com.example.ui.screens.BookmarksOverlay
+import com.example.ui.screens.GitHubRepositoryScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.LibraryScreen
 import com.example.ui.screens.NoteEditorOverlay
@@ -178,7 +179,7 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
 
     // Show the full-screen Paperflow Liquid Glass Authentication experience when requested
     var hasPassedAuthGateInSession by remember { mutableStateOf(true) }
-    var showFlashIntro by remember { mutableStateOf(true) }
+    var showFlashIntro by remember { mutableStateOf(false) }
 
     var pendingSourceLabel by remember { mutableStateOf("Device") }
 
@@ -204,32 +205,21 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
         viewModel.selectTab(MainTab.HOME)
     }
 
-    var shouldRenderMainTree by remember { mutableStateOf(false) }
-    LaunchedEffect(isAppStartingLoading) {
-        if (!isAppStartingLoading) {
-            shouldRenderMainTree = true
-        } else {
-            kotlinx.coroutines.delay(180)
-            shouldRenderMainTree = true
-        }
-    }
-
     GlassPaperTheme(darkTheme = useDarkTheme, isGalacticCodex = isGalacticCodex) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (shouldRenderMainTree) {
-                if (!authSession.isAuthenticated && !hasPassedAuthGateInSession) {
-                    AuthenticationScreen(
-                        authManager = viewModel.authManager,
-                        sessionState = authSession,
-                        onAuthCompleted = {
-                            hasPassedAuthGateInSession = true
-                            viewModel.closeOverlay()
-                        },
-                        onCloseOrDismiss = {
-                            hasPassedAuthGateInSession = true
-                        }
-                    )
-                } else {
+            if (!authSession.isAuthenticated && !hasPassedAuthGateInSession) {
+                AuthenticationScreen(
+                    authManager = viewModel.authManager,
+                    sessionState = authSession,
+                    onAuthCompleted = {
+                        hasPassedAuthGateInSession = true
+                        viewModel.closeOverlay()
+                    },
+                    onCloseOrDismiss = {
+                        hasPassedAuthGateInSession = true
+                    }
+                )
+            } else {
                     LiquidAmbientBackground {
                         Box(modifier = Modifier.fillMaxSize()) {
                             when (val overlay = activeOverlay) {
@@ -317,6 +307,13 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
                                     )
                                 }
 
+                                is ActiveOverlay.GitHubRepository -> {
+                                    GitHubRepositoryScreen(
+                                        onBack = { viewModel.closeOverlay() },
+                                        onShowMessage = { msg -> viewModel.showMessage(msg) }
+                                    )
+                                }
+
                                 is ActiveOverlay.ToolWorkspace -> {
                                     ToolWorkspaceOverlay(
                                         viewModel = viewModel,
@@ -331,80 +328,13 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
                                 }
 
                                 ActiveOverlay.None -> {
-                                    var scrollCompression by remember { mutableFloatStateOf(0f) }
-                                    var lastScrollTimeMs by remember { mutableLongStateOf(0L) }
-
-                                    val nestedScrollConnection = remember {
-                                        object : NestedScrollConnection {
-                                            override fun onPostScroll(
-                                                consumed: Offset,
-                                                available: Offset,
-                                                source: NestedScrollSource
-                                            ): Offset {
-                                                if (kotlin.math.abs(consumed.y) > 1.5f) {
-                                                    lastScrollTimeMs = System.currentTimeMillis()
-                                                    scrollCompression = if (consumed.y < 0f) {
-                                                        // Scrolling down -> subtle downward float & slightly softer opacity
-                                                        (scrollCompression + (-consumed.y / 180f)).coerceIn(0f, 1f)
-                                                    } else {
-                                                        // Scrolling up -> smoothly return toward rest
-                                                        (scrollCompression - (consumed.y / 140f)).coerceIn(0f, 1f)
-                                                    }
-                                                }
-                                                return Offset.Zero
-                                            }
-                                        }
-                                    }
-
-                                    // Smoothly return the floating navigation bar to its resting state when scrolling stops
-                                    LaunchedEffect(lastScrollTimeMs) {
-                                        if (lastScrollTimeMs > 0L) {
-                                            kotlinx.coroutines.delay(260)
-                                            scrollCompression = 0f
-                                        }
-                                    }
-
                                     // Main 4 Destinations: HOME | TOOLS | LIBRARY | SETTINGS
-                                    // Smooth directional horizontal movement + fade transition while keeping the navigation bar stable
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .nestedScroll(nestedScrollConnection)
-                                    ) {
-                                        AnimatedContent(
+                                    // Ultra-fast 110ms transition for instant responsiveness
+                                    Box(modifier = Modifier.fillMaxSize()) {
+                                        Crossfade(
                                             targetState = currentTab,
-                                            transitionSpec = {
-                                                val forward = targetState.ordinal >= initialState.ordinal
-                                                val slideDistance = { fullWidth: Int -> (fullWidth * 0.065f).toInt() }
-                                                (fadeIn(
-                                                    animationSpec = tween(durationMillis = 190, easing = FastOutSlowInEasing)
-                                                ) +
-                                                    slideInHorizontally(
-                                                        animationSpec = spring(
-                                                            dampingRatio = Spring.DampingRatioNoBouncy,
-                                                            stiffness = Spring.StiffnessMedium
-                                                        ),
-                                                        initialOffsetX = { fullWidth ->
-                                                            if (forward) slideDistance(fullWidth) else -slideDistance(fullWidth)
-                                                        }
-                                                    ))
-                                                    .togetherWith(
-                                                        fadeOut(
-                                                            animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing)
-                                                        ) +
-                                                            slideOutHorizontally(
-                                                                animationSpec = spring(
-                                                                    dampingRatio = Spring.DampingRatioNoBouncy,
-                                                                    stiffness = Spring.StiffnessMedium
-                                                                ),
-                                                                targetOffsetX = { fullWidth ->
-                                                                    if (forward) -slideDistance(fullWidth) else slideDistance(fullWidth)
-                                                                }
-                                                            )
-                                                    )
-                                                    .using(SizeTransform(clip = false))
-                                            },
-                                            label = "main_tab_liquid_transition"
+                                            animationSpec = tween(durationMillis = 110, easing = FastOutSlowInEasing),
+                                            label = "main_tab_fast_transition"
                                         ) { tab ->
                                             when (tab) {
                                                 MainTab.HOME -> {
@@ -419,6 +349,8 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
                                                         onOpenBookmarks = { viewModel.openBookmarksSheet() },
                                                         onOpenStreakDetails = { viewModel.openStreakDetails() },
                                                         onOpenAuth = { viewModel.openAuthentication() },
+                                                        onOpenGitHubRepo = { viewModel.openGitHubRepository() },
+                                                        onReplayFlashIntro = { showFlashIntro = true },
                                                         onNavigateToLibrary = { category ->
                                                             viewModel.setLibraryCategory(category)
                                                             viewModel.selectTab(MainTab.LIBRARY)
@@ -469,7 +401,6 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
                                     FloatingGlassNavigationBar(
                                         currentTab = currentTab,
                                         onSelectTab = { viewModel.selectTab(it) },
-                                        scrollCompressionProgress = scrollCompression,
                                         modifier = Modifier.align(Alignment.BottomCenter)
                                     )
                                 }
@@ -502,7 +433,6 @@ fun GlassPaperApp(viewModel: GlassPaperViewModel) {
                             }
                         }
                     }
-                }
             }
 
             // Ultra-smooth 3.0-second Apple VisionOS + Liquid Glass Flash Intro

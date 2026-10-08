@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Diamond
@@ -470,6 +471,15 @@ fun SettingsScreen(
                         accent = CrystalTeal,
                         onClick = {
                             infoDialogContent = "Privacy Policy" to "Your documents stay on your device.\n\nPaperflow processes all PDF rendering, annotations, notes, and document utilities strictly on your Android device. No files or reading habits are ever uploaded to external servers."
+                        }
+                    )
+                    SettingsInfoRow(
+                        icon = Icons.Filled.Code,
+                        title = "Paperflow GitHub Repository",
+                        subtitle = "penpoyem-create/Paperflow-pdf-reader-Notes • Browse source tree, commits & README",
+                        accent = LiquidCyan,
+                        onClick = {
+                            viewModel.openGitHubRepository()
                         }
                     )
                     SettingsInfoRow(

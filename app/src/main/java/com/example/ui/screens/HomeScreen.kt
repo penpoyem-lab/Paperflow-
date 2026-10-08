@@ -37,6 +37,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.Edit
@@ -111,6 +112,8 @@ fun HomeScreen(
     onOpenBookmarks: () -> Unit,
     onOpenStreakDetails: () -> Unit,
     onOpenAuth: () -> Unit = {},
+    onOpenGitHubRepo: () -> Unit = {},
+    onReplayFlashIntro: () -> Unit = {},
     onNavigateToLibrary: (LibraryCategory) -> Unit
 ) {
     val glass = LocalGlassColors.current
@@ -316,108 +319,56 @@ fun HomeScreen(
                                 color = glass.textSecondary
                             )
 
-                            if (glass.isGalacticCodex) {
-                                // Glowing Blue-Violet Diamond Badge + Golden Flame Orb Badge matching the reference photo
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clip(RoundedCornerShape(9.dp))
-                                        .background(
-                                            brush = Brush.linearGradient(
-                                                colors = listOf(
-                                                    LiquidCyan.copy(alpha = 0.35f),
-                                                    PrismViolet.copy(alpha = 0.45f)
-                                                )
-                                            )
-                                        )
-                                        .border(
-                                            width = 1.dp,
-                                            color = LiquidCyan.copy(alpha = 0.75f),
-                                            shape = RoundedCornerShape(9.dp)
-                                        )
-                                        .clickable(onClick = onOpenStreakDetails),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Diamond,
-                                        contentDescription = "Scholar Gem",
-                                        tint = LiquidCyan,
-                                        modifier = Modifier.size(16.dp)
+                            val activeDays = streakData.currentStreak.coerceAtLeast(1)
+                            // Snapchat-style Fire Streak Pill (🔥 + streak count)
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(
+                                        if (glass.isDark || glass.isGalacticCodex) {
+                                            Color(0xFF1F2430).copy(alpha = 0.88f)
+                                        } else {
+                                            Color(0xFFFFF7ED)
+                                        }
                                     )
-                                }
-
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clip(RoundedCornerShape(9.dp))
-                                        .background(
-                                            brush = Brush.linearGradient(
-                                                colors = listOf(
-                                                    SolarAmber.copy(alpha = 0.38f),
-                                                    Color(0xFF78350F).copy(alpha = 0.55f)
-                                                )
-                                            )
-                                        )
-                                        .border(
-                                            width = 1.dp,
-                                            color = WarmGold.copy(alpha = 0.80f),
-                                            shape = RoundedCornerShape(9.dp)
-                                        )
-                                        .testTag("home_streak_badge")
-                                        .clickable(onClick = onOpenStreakDetails),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.LocalFireDepartment,
-                                        contentDescription = "Daily Streak",
-                                        tint = WarmGold,
-                                        modifier = Modifier.size(17.dp)
+                                    .border(
+                                        width = 1.dp,
+                                        color = SolarAmber.copy(alpha = 0.65f),
+                                        shape = RoundedCornerShape(50)
                                     )
-                                }
-                            } else {
-                                val activeDays = streakData.currentStreak.coerceAtLeast(1)
-                                Row(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(50))
-                                        .background(
-                                            brush = Brush.horizontalGradient(
-                                                colors = listOf(
-                                                    SolarAmber.copy(alpha = if (glass.isDark) 0.28f else 0.25f),
-                                                    IridescentPink.copy(alpha = if (glass.isDark) 0.25f else 0.20f)
-                                                )
-                                            )
-                                        )
-                                        .border(
-                                            width = 1.dp,
-                                            color = SolarAmber.copy(alpha = 0.75f),
-                                            shape = RoundedCornerShape(50)
-                                        )
-                                        .testTag("home_streak_badge")
-                                        .clickable(onClick = onOpenStreakDetails)
-                                        .padding(horizontal = 9.dp, vertical = 3.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.LocalFireDepartment,
-                                        contentDescription = "Daily Streak",
-                                        tint = SolarAmber,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text(
-                                        text = "$activeDays day streak",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = FontWeight.Bold
-                                        ),
-                                        color = if (glass.isDark) Color.White else Color(0xFF9A3412)
-                                    )
-                                }
+                                    .clickable(onClick = onOpenStreakDetails)
+                                    .padding(horizontal = 9.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "\uD83D\uDD25",
+                                    fontSize = 12.sp
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "$activeDays",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 12.sp
+                                    ),
+                                    color = if (glass.isDark || glass.isGalacticCodex) Color.White else Color(0xFF9A3412)
+                                )
                             }
                         }
                     }
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Snapchat-style Top Bar Streak Button (🔥 + Count Pill)
+                    SnapchatStyleStreakButton(
+                        streakCount = streakData.currentStreak.coerceAtLeast(1),
+                        onClick = onOpenStreakDetails,
+                        modifier = Modifier.testTag("home_streak_badge")
+                    )
+
                     GlassCircularIconButton(
                         icon = Icons.Filled.Search,
                         contentDescription = "Search documents",
@@ -476,6 +427,20 @@ fun HomeScreen(
                                 onClick = {
                                     showTopMenu = false
                                     onOpenBookmarks()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("GitHub Repository") },
+                                onClick = {
+                                    showTopMenu = false
+                                    onOpenGitHubRepo()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Replay Flash Intro") },
+                                onClick = {
+                                    showTopMenu = false
+                                    onReplayFlashIntro()
                                 }
                             )
                         }
@@ -715,16 +680,7 @@ private fun HeroOpenPdfCard(
     onOpenSelectPdf: () -> Unit
 ) {
     val glass = LocalGlassColors.current
-    val infiniteTransition = rememberInfiniteTransition(label = "hero_shimmer")
-    val lightSweep by infiniteTransition.animateFloat(
-        initialValue = 0.1f,
-        targetValue = 0.9f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 6500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "light_sweep"
-    )
+    val lightSweep = 0.32f
 
     val heroShape = RoundedCornerShape(32.dp)
 
@@ -1262,3 +1218,73 @@ fun RecentPdfGlassRow(
         }
     }
 }
+
+@Composable
+private fun SnapchatStyleStreakButton(
+    streakCount: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val glass = LocalGlassColors.current
+    val pillShape = RoundedCornerShape(50)
+
+    Row(
+        modifier = modifier
+            .height(44.dp)
+            .shadow(
+                elevation = 10.dp,
+                shape = pillShape,
+                ambientColor = SolarAmber.copy(alpha = 0.45f),
+                spotColor = Color(0xFFFF5722).copy(alpha = 0.45f)
+            )
+            .clip(pillShape)
+            .background(
+                brush = if (glass.isDark || glass.isGalacticCodex) {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            Color(0xFF1F232B).copy(alpha = 0.94f),
+                            Color(0xFF2B1D19).copy(alpha = 0.94f)
+                        )
+                    )
+                } else {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.94f),
+                            Color(0xFFFFF7ED).copy(alpha = 0.94f)
+                        )
+                    )
+                }
+            )
+            .border(
+                width = 1.3.dp,
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        SolarAmber.copy(alpha = 0.90f),
+                        Color(0xFFFF6D00).copy(alpha = 0.75f),
+                        Color.White.copy(alpha = 0.65f)
+                    )
+                ),
+                shape = pillShape
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "\uD83D\uDD25",
+            fontSize = 17.sp
+        )
+        Spacer(modifier = Modifier.width(5.dp))
+        Text(
+            text = "$streakCount",
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 16.sp,
+                letterSpacing = (-0.2).sp
+            ),
+            color = if (glass.isDark || glass.isGalacticCodex) Color.White else Color(0xFF1E293B)
+        )
+    }
+}
+

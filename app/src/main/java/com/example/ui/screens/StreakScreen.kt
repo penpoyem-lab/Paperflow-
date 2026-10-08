@@ -424,22 +424,32 @@ fun StreakCelebrationModal(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Large Animated Counting Streak Number (e.g., 6 -> 7)
-                Text(
-                    text = "$displayedStreak",
-                    style = MaterialTheme.typography.displayLarge.copy(
-                        fontSize = 68.sp,
-                        lineHeight = 72.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    ),
-                    color = Color.White,
+                // Large Animated Counting Streak Number (Snapchat-style 🔥 + number)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
                     modifier = Modifier
                         .graphicsLayer(
                             scaleX = numberScale.value,
                             scaleY = numberScale.value
                         )
-                        .testTag("streak_celebration_number")
-                )
+                ) {
+                    Text(
+                        text = "\uD83D\uDD25",
+                        fontSize = 52.sp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "$displayedStreak",
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontSize = 68.sp,
+                            lineHeight = 72.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        ),
+                        color = Color.White,
+                        modifier = Modifier.testTag("streak_celebration_number")
+                    )
+                }
 
                 Text(
                     text = "${displayedStreak} DAY STREAK!",
@@ -623,24 +633,64 @@ fun StreakDetailsOverlay(
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                GlassCircularIconButton(
-                    icon = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    onClick = onBack
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "Daily Reading Streak",
-                        style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                        color = glass.textPrimary
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    GlassCircularIconButton(
+                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        onClick = onBack
                     )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Daily Streaks",
+                            style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
+                            color = glass.textPrimary
+                        )
+                        Text(
+                            text = "Keep your daily reading streak alive! \uD83D\uDD25",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = glass.textSecondary
+                        )
+                    }
+                }
+
+                // Snapchat-style Streak Pill in Header (🔥 + Number)
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(
+                            if (glass.isDark || glass.isGalacticCodex) {
+                                Color(0xFF1F232B).copy(alpha = 0.94f)
+                            } else {
+                                Color(0xFFFFF7ED)
+                            }
+                        )
+                        .border(
+                            width = 1.2.dp,
+                            color = SolarAmber.copy(alpha = 0.85f),
+                            shape = RoundedCornerShape(50)
+                        )
+                        .padding(horizontal = 13.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = "100% Offline • Local Check-In History & Milestones",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = glass.textSecondary
+                        text = "\uD83D\uDD25",
+                        fontSize = 16.sp
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = "$activeStreakCount",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 16.sp
+                        ),
+                        color = if (glass.isDark || glass.isGalacticCodex) Color.White else Color(0xFF1E293B)
                     )
                 }
             }

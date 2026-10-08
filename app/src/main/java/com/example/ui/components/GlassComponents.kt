@@ -108,219 +108,132 @@ fun LiquidAmbientBackground(
     content: @Composable BoxScope.() -> Unit
 ) {
     val glass = LocalGlassColors.current
-    val infiniteTransition = rememberInfiniteTransition(label = "ambient_refraction")
-    val drift by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 11000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "drift"
-    )
 
-    Box(modifier = modifier.fillMaxSize()) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .drawWithCache {
+                val w = size.width
+                val h = size.height
 
-            if (glass.isGalacticCodex) {
-                // Galactic Codex Deep Space Nebula & Starfield Canvas matching the uploaded photo theme
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF04060D),
-                            Color(0xFF0B111E),
-                            Color(0xFF141824),
-                            Color(0xFF090D16),
-                            Color(0xFF05070E)
-                        )
+                val galacticBgBrush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF04060D),
+                        Color(0xFF0B111E),
+                        Color(0xFF141824),
+                        Color(0xFF090D16),
+                        Color(0xFF05070E)
                     )
                 )
-
-                // Diagonal Milky Way / Golden-Copper & Emerald-Teal Nebula Dust Clouds
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFFD97706).copy(alpha = 0.26f),
-                            Color(0xFF78350F).copy(alpha = 0.14f),
-                            Color.Transparent
-                        ),
-                        center = Offset(w * (0.78f - 0.08f * drift), h * 0.22f),
-                        radius = w * 0.72f
+                val galacticGoldOrb = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFFD97706).copy(alpha = 0.25f),
+                        Color(0xFF78350F).copy(alpha = 0.13f),
+                        Color.Transparent
                     ),
-                    radius = w * 0.72f,
-                    center = Offset(w * (0.78f - 0.08f * drift), h * 0.22f)
+                    center = Offset(w * 0.75f, h * 0.22f),
+                    radius = w * 0.72f
+                )
+                val galacticTealOrb = Brush.radialGradient(
+                    colors = listOf(
+                        CrystalTeal.copy(alpha = 0.23f),
+                        Color(0xFF0F766E).copy(alpha = 0.13f),
+                        Color.Transparent
+                    ),
+                    center = Offset(w * 0.28f, h * 0.36f),
+                    radius = w * 0.68f
+                )
+                val galacticCenterOrb = Brush.radialGradient(
+                    colors = listOf(
+                        SolarAmber.copy(alpha = 0.18f),
+                        PrismPurple.copy(alpha = 0.12f),
+                        Color.Transparent
+                    ),
+                    center = Offset(w * 0.48f, h * 0.56f),
+                    radius = w * 0.75f
                 )
 
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            CrystalTeal.copy(alpha = 0.24f),
-                            Color(0xFF0F766E).copy(alpha = 0.14f),
-                            Color.Transparent
-                        ),
-                        center = Offset(w * (0.24f + 0.10f * drift), h * 0.36f),
-                        radius = w * 0.68f
-                    ),
-                    radius = w * 0.68f,
-                    center = Offset(w * (0.24f + 0.10f * drift), h * 0.36f)
+                val darkBgBrush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF060918),
+                        Color(0xFF0C1430),
+                        Color(0xFF10132E),
+                        Color(0xFF050814)
+                    )
+                )
+                val darkBlueOrb = Brush.radialGradient(
+                    colors = listOf(ElectricBlue.copy(alpha = 0.26f), Color.Transparent),
+                    center = Offset(w * 0.25f, h * 0.14f),
+                    radius = w * 0.70f
+                )
+                val darkPurpleOrb = Brush.radialGradient(
+                    colors = listOf(PrismPurple.copy(alpha = 0.22f), Color.Transparent),
+                    center = Offset(w * 0.80f, h * 0.34f),
+                    radius = w * 0.66f
+                )
+                val darkCyanOrb = Brush.radialGradient(
+                    colors = listOf(LiquidCyan.copy(alpha = 0.16f), Color.Transparent),
+                    center = Offset(w * 0.30f, h * 0.70f),
+                    radius = w * 0.62f
                 )
 
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            SolarAmber.copy(alpha = 0.20f),
-                            PrismPurple.copy(alpha = 0.14f),
-                            Color.Transparent
-                        ),
-                        center = Offset(w * 0.48f, h * (0.58f - 0.05f * drift)),
-                        radius = w * 0.75f
-                    ),
-                    radius = w * 0.75f,
-                    center = Offset(w * 0.48f, h * (0.58f - 0.05f * drift))
+                val lightBgBrush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF9AC5F8),
+                        Color(0xFFC5D8FF),
+                        Color(0xFFDECFF9),
+                        Color(0xFFC7DAF8),
+                        Color(0xFFD9C7F2)
+                    )
+                )
+                val lightCyanOrb = Brush.radialGradient(
+                    colors = listOf(LiquidCyan.copy(alpha = 0.36f), Color.Transparent),
+                    center = Offset(w * 0.20f, h * 0.09f),
+                    radius = w * 0.65f
+                )
+                val lightPearlOrb = Brush.radialGradient(
+                    colors = listOf(Color(0xFFFDF4FF).copy(alpha = 0.70f), Color.Transparent),
+                    center = Offset(w * 0.75f, h * 0.12f),
+                    radius = w * 0.58f
                 )
 
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            WarmGold.copy(alpha = 0.18f),
-                            CrystalTeal.copy(alpha = 0.12f),
-                            Color.Transparent
-                        ),
-                        center = Offset(w * 0.52f, h * 0.90f),
-                        radius = w * 0.68f
-                    ),
-                    radius = w * 0.68f,
-                    center = Offset(w * 0.52f, h * 0.90f)
-                )
+                val starRBig = 2.0.dp.toPx()
+                val starRMed = 1.25.dp.toPx()
+                val starRSmall = 0.85.dp.toPx()
 
-                // Crisp Galactic Starfield & Distant Nebula Sparkles
-                for (i in 0 until 44) {
-                    val sx = ((i * 73 + 19) % 100) / 100f * w
-                    val sy = ((i * 41 + 11) % 100) / 100f * h
-                    val twinkle = 0.35f + 0.65f * kotlin.math.abs(sin((drift * PI + i * 0.7f).toFloat()))
-                    val starRadius = if (i % 7 == 0) 2.1.dp.toPx() else if (i % 3 == 0) 1.3.dp.toPx() else 0.85.dp.toPx()
-                    val starColor = when {
-                        i % 7 == 0 -> WarmGold
-                        i % 5 == 0 -> LiquidCyan
-                        else -> Color.White
+                onDrawBehind {
+                    if (glass.isGalacticCodex) {
+                        drawRect(brush = galacticBgBrush)
+                        drawCircle(brush = galacticGoldOrb, radius = w * 0.72f, center = Offset(w * 0.75f, h * 0.22f))
+                        drawCircle(brush = galacticTealOrb, radius = w * 0.68f, center = Offset(w * 0.28f, h * 0.36f))
+                        drawCircle(brush = galacticCenterOrb, radius = w * 0.75f, center = Offset(w * 0.48f, h * 0.56f))
+
+                        // Cached crisp starfield (28 stars, zero per-frame trig calculations)
+                        for (i in 0 until 28) {
+                            val sx = ((i * 73 + 19) % 100) / 100f * w
+                            val sy = ((i * 41 + 11) % 100) / 100f * h
+                            val starRadius = if (i % 7 == 0) starRBig else if (i % 3 == 0) starRMed else starRSmall
+                            val starColor = when {
+                                i % 7 == 0 -> WarmGold.copy(alpha = 0.75f)
+                                i % 5 == 0 -> LiquidCyan.copy(alpha = 0.70f)
+                                else -> Color.White.copy(alpha = 0.55f)
+                            }
+                            drawCircle(color = starColor, radius = starRadius, center = Offset(sx, sy))
+                        }
+                    } else if (glass.isDark) {
+                        drawRect(brush = darkBgBrush)
+                        drawCircle(brush = darkBlueOrb, radius = w * 0.70f, center = Offset(w * 0.25f, h * 0.14f))
+                        drawCircle(brush = darkPurpleOrb, radius = w * 0.66f, center = Offset(w * 0.80f, h * 0.34f))
+                        drawCircle(brush = darkCyanOrb, radius = w * 0.62f, center = Offset(w * 0.30f, h * 0.70f))
+                    } else {
+                        drawRect(brush = lightBgBrush)
+                        drawCircle(brush = lightCyanOrb, radius = w * 0.65f, center = Offset(w * 0.20f, h * 0.09f))
+                        drawCircle(brush = lightPearlOrb, radius = w * 0.58f, center = Offset(w * 0.75f, h * 0.12f))
                     }
-                    drawCircle(
-                        color = starColor.copy(alpha = (0.55f * twinkle).coerceIn(0.15f, 0.85f)),
-                        radius = starRadius,
-                        center = Offset(sx, sy)
-                    )
                 }
-            } else if (glass.isDark) {
-                // Deep Navy / Black Spatial Canvas with Luminous Orbs
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF060918),
-                            Color(0xFF0C1430),
-                            Color(0xFF10132E),
-                            Color(0xFF050814)
-                        )
-                    )
-                )
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(ElectricBlue.copy(alpha = 0.28f), Color.Transparent),
-                        center = Offset(w * (0.2f + 0.15f * drift), h * 0.14f),
-                        radius = w * 0.72f
-                    ),
-                    radius = w * 0.72f,
-                    center = Offset(w * (0.2f + 0.15f * drift), h * 0.14f)
-                )
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(PrismPurple.copy(alpha = 0.24f), Color.Transparent),
-                        center = Offset(w * (0.85f - 0.12f * drift), h * 0.34f),
-                        radius = w * 0.68f
-                    ),
-                    radius = w * 0.68f,
-                    center = Offset(w * (0.85f - 0.12f * drift), h * 0.34f)
-                )
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(LiquidCyan.copy(alpha = 0.18f), Color.Transparent),
-                        center = Offset(w * 0.3f, h * (0.72f - 0.08f * drift)),
-                        radius = w * 0.65f
-                    ),
-                    radius = w * 0.65f,
-                    center = Offset(w * 0.3f, h * (0.72f - 0.08f * drift))
-                )
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(IridescentPink.copy(alpha = 0.16f), Color.Transparent),
-                        center = Offset(w * 0.78f, h * 0.88f),
-                        radius = w * 0.55f
-                    ),
-                    radius = w * 0.55f,
-                    center = Offset(w * 0.78f, h * 0.88f)
-                )
-            } else {
-                // Airy Iridescent VisionOS Light Mode Canvas matching the reference aesthetic
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF9AC5F8), // Soft sky electric blue top
-                            Color(0xFFC5D8FF), // Periwinkle mist
-                            Color(0xFFDECFF9), // Soft lavender refraction
-                            Color(0xFFC7DAF8), // Cool glass blue
-                            Color(0xFFD9C7F2)  // Iridescent bottom glow
-                        )
-                    )
-                )
-
-                // Top-left cyan/blue refraction wave
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(LiquidCyan.copy(alpha = 0.38f), Color.Transparent),
-                        center = Offset(w * (0.15f + 0.15f * drift), h * 0.09f),
-                        radius = w * 0.65f
-                    ),
-                    radius = w * 0.65f,
-                    center = Offset(w * (0.15f + 0.15f * drift), h * 0.09f)
-                )
-
-                // Top-right warm pearl/lavender highlight
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color(0xFFFDF4FF).copy(alpha = 0.72f), Color.Transparent),
-                        center = Offset(w * (0.78f - 0.1f * drift), h * 0.12f),
-                        radius = w * 0.58f
-                    ),
-                    radius = w * 0.58f,
-                    center = Offset(w * (0.78f - 0.1f * drift), h * 0.12f)
-                )
-
-                // Center-right warm amber/pink refraction
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(SolarAmber.copy(alpha = 0.22f), IridescentPink.copy(alpha = 0.16f), Color.Transparent),
-                        center = Offset(w * 0.88f, h * (0.48f + 0.06f * drift)),
-                        radius = w * 0.65f
-                    ),
-                    radius = w * 0.65f,
-                    center = Offset(w * 0.88f, h * (0.48f + 0.06f * drift))
-                )
-
-                // Bottom-left electric blue & teal refraction
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(ElectricBlue.copy(alpha = 0.28f), CrystalTeal.copy(alpha = 0.15f), Color.Transparent),
-                        center = Offset(w * 0.18f, h * 0.75f),
-                        radius = w * 0.7f
-                    ),
-                    radius = w * 0.7f,
-                    center = Offset(w * 0.18f, h * 0.75f)
-                )
-            }
-        }
-        content()
-    }
+            },
+        content = content
+    )
 }
 
 @Composable
@@ -532,47 +445,17 @@ fun FloatingGlassNavigationBar(
         )
     }
 
-    // Smooth 165Hz spring-driven indicator position with subtle physical overshoot
+    // Smooth high-stiffness spring-driven indicator position for instant responsiveness
     val animatedTabIndex by animateFloatAsState(
         targetValue = selectionProgress.coerceIn(0f, 3f),
         animationSpec = spring(
-            dampingRatio = 0.78f, // Subtle physical liquid overshoot without excessive bounce
-            stiffness = Spring.StiffnessMedium
+            dampingRatio = 0.85f,
+            stiffness = Spring.StiffnessHigh
         ),
         label = "liquid_capsule_slide"
     )
 
-    // Tiny light reflection sweep triggered whenever the selected destination changes
-    val reflectionSweep = remember { Animatable(-0.35f) }
-    LaunchedEffect(currentTab) {
-        reflectionSweep.snapTo(-0.35f)
-        reflectionSweep.animateTo(
-            targetValue = 1.35f,
-            animationSpec = tween(durationMillis = 620, easing = FastOutSlowInEasing)
-        )
-    }
-
-    // Continuous subtle ambient refraction drift inside the glass pill
-    val infiniteTransition = rememberInfiniteTransition(label = "nav_glass_refraction")
-    val refractionPhase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 8000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "nav_refraction_phase"
-    )
-
-    // Scroll-reactive floating offset & opacity (subtly shifts a few pixels and softens opacity while scrolling)
-    val animatedScrollFactor by animateFloatAsState(
-        targetValue = scrollCompressionProgress.coerceIn(0f, 1f),
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "nav_scroll_reaction"
-    )
+    val refractionPhase = 0.45f
 
     val activeAccentColor by animateColorAsState(
         targetValue = if (glass.isGalacticCodex) {
@@ -585,7 +468,7 @@ fun FloatingGlassNavigationBar(
                 MainTab.SETTINGS -> IridescentPink
             }
         },
-        animationSpec = tween(durationMillis = 360),
+        animationSpec = tween(durationMillis = 160),
         label = "nav_active_accent"
     )
 
@@ -593,11 +476,7 @@ fun FloatingGlassNavigationBar(
         modifier = modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 18.dp, vertical = 12.dp)
-            .graphicsLayer {
-                translationY = animatedScrollFactor * 6.dp.toPx()
-                alpha = 1f - (animatedScrollFactor * 0.14f)
-            },
+            .padding(horizontal = 18.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {
         // Outer Ambient Light Halo & Soft Floating Shadow Separation beneath the Glass Pill
@@ -724,24 +603,6 @@ fun FloatingGlassNavigationBar(
                         ),
                         cornerRadius = CornerRadius(38.dp.toPx(), 38.dp.toPx())
                     )
-
-                    // 3. Tiny light reflection sweep across the glass during tab transitions
-                    val sweepX = w * reflectionSweep.value
-                    if (reflectionSweep.value in -0.25f..1.25f) {
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = if (glass.isDark) 0.18f else 0.42f),
-                                    LiquidCyan.copy(alpha = 0.08f),
-                                    Color.Transparent
-                                ),
-                                center = Offset(sweepX, h * 0.38f),
-                                radius = h * 0.95f
-                            ),
-                            radius = h * 0.95f,
-                            center = Offset(sweepX, h * 0.38f)
-                        )
-                    }
                 }
                 .border(
                     width = 1.2.dp,

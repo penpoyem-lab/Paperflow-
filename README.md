@@ -23,11 +23,16 @@ Paperflow is a modern, local-first Android application built with Kotlin, Jetpac
 - **Study Notes & Bookmarks**:
   - Rich study note editor with formatting tools (Bold, Italic, Underline, Bullet List, Numbered List, Highlight, Checklist) and direct PDF page linking.
   - Instant page bookmarking and dedicated Bookmarks sheet.
-- **Offline PDF Tools**:
+- **Offline PDF Tools (19 Active Utilities)**:
   - **Edit**: Merge PDF, Split PDF, Rotate PDF (90°/180°/270°), Rearrange PDF, Delete Pages, Extract Pages, Page Numbers, Diagonal Watermark, and Ink Signature Pad.
   - **Optimize**: Compress PDF, Repair PDF, and Grayscale conversion.
-  - **Security**: Document Metadata inspector (with transparent *Coming Soon* states for hardware AES-256 Protect/Unlock).
+  - **Security**: Protect PDF (local password lock), Unlock PDF (password verification & removal), and Document Metadata inspector.
   - **Convert**: PDF to Image (PNG export), Image to PDF, Extract Images, and PDF to Text.
+- **Daily Reading Streak System**:
+  - Automatic daily check-ins, 7-day calendar strip, milestone progression badges, and Snapchat-style `🔥 + count` streak pills.
+- **Galactic Scholar Photo Theme & Repository Explorer**:
+  - Switch between Light, Dark, System, and the **Galactic Scholar (Cosmic Codex)** photo theme in Settings.
+  - Built-in **GitHub Repository Explorer** (`penpoyem-create / Paperflow-pdf-reader-Notes`) with branch switching, commit history, interactive file tree, and tabbed `README` / `MIT license` viewer.
 
 ---
 

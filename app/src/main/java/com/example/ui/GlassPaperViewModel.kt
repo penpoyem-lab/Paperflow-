@@ -59,6 +59,7 @@ sealed class ActiveOverlay {
     data object BookmarksSheet : ActiveOverlay()
     data object StreakDetails : ActiveOverlay()
     data object Authentication : ActiveOverlay()
+    data object GitHubRepository : ActiveOverlay()
     data class ToolWorkspace(val toolId: String) : ActiveOverlay()
 }
 
@@ -138,7 +139,6 @@ class GlassPaperViewModel(
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             repository.removeLegacyDemoFilesIfPresent()
             val checkIn = settingsDataStore.registerDailyCheckInIfNeeded()
-            kotlinx.coroutines.delay(450)
             _isAppStartingLoading.value = false
             if (checkIn != null) {
                 _streakCelebrationEvent.value = checkIn
@@ -158,6 +158,11 @@ class GlassPaperViewModel(
     fun openAuthentication() {
         _streakCelebrationEvent.value = null
         _activeOverlay.value = ActiveOverlay.Authentication
+    }
+
+    fun openGitHubRepository() {
+        _streakCelebrationEvent.value = null
+        _activeOverlay.value = ActiveOverlay.GitHubRepository
     }
 
     fun signOut() {
